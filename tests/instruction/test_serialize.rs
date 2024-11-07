@@ -1,4 +1,4 @@
-use mips_processor::{
+use mips_weaver::{
     config::Config,
     instruction::Instruction, memory::{linker::LinkerTask, Memory},
 };
@@ -668,11 +668,11 @@ const PSEUDO_TESTS: &[(&'static str, &[&'static str])] = &[
 #[test]
 fn test_serialize() {
     let cfgr5 = Config {
-        version: mips_processor::config::Version::R5,
+        version: mips_weaver::config::Version::R5,
         ..Default::default()
     };
     let cfgr6 = Config {
-        version: mips_processor::config::Version::R6,
+        version: mips_weaver::config::Version::R6,
         ..Default::default()
     };
     let mut lt: Vec<LinkerTask> = vec![];

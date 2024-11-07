@@ -1,5 +1,5 @@
 [package]
-name = "mips_processor"
+name = "mips_weaver"
 version = "0.1.0"
 edition = "2021"
 

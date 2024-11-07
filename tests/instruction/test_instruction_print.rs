@@ -1,4 +1,4 @@
-use mips_processor::{config::Config, instruction::Instruction};
+use mips_weaver::{config::Config, instruction::Instruction};
 
 #[test]
 fn test_instruction_print() {
@@ -17,7 +17,7 @@ fn test_instruction_print() {
         "addiupc $s0, 0",
     ];
     let cfg = Config {
-        version: mips_processor::config::Version::R5,
+        version: mips_weaver::config::Version::R5,
         ..Default::default()
     };
     for case in matchers {

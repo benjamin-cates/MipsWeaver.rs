@@ -1,4 +1,4 @@
-use mips_processor::{err::{MIPSParseError, ParseErrorType}, instruction::{Immediate, IndexedAddr, Label, SumAddress}, register::{Processor, Register, GPR_NAMES}};
+use mips_weaver::{err::{MIPSParseError, ParseErrorType}, instruction::{Immediate, IndexedAddr, Label, SumAddress}, register::{Processor, Register, GPR_NAMES}};
 
 fn msa(label: &str, offset: Option<i32>, reg: isize) -> SumAddress {
     SumAddress {

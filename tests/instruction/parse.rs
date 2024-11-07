@@ -1,6 +1,6 @@
 use std::fmt::{Display, Write};
 
-use mips_processor::{
+use mips_weaver::{
     config::Config,
     instruction::{Immediate, IndexedAddr, Instruction, Label, SumAddress},
     register::{Register, GPR_NAMES},

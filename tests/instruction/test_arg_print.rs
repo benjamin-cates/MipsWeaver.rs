@@ -1,5 +1,5 @@
 
-use mips_processor::{
+use mips_weaver::{
     register::{Register, GPR_NAMES},
 };
 

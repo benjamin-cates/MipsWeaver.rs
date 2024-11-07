@@ -1,7 +1,7 @@
 use super::parse::{
     test_crc, test_double_arg, test_four_arg, test_single_arg, test_triple_arg, test_triple_llwp, FloatRand, IdxAddressRand, ImmediateRand, LabelRand, RegRand, SumAddressRand, UnnamedRegisterRand
 };
-use mips_processor::{
+use mips_weaver::{
     config::{Config, Version},
     instruction::{Comparison, Immediate, Instruction, Label, Likely, Sign, SumAddress},
     memory::{FloatType, IntType},

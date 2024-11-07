@@ -1,7 +1,7 @@
-use mips_processor::config::Config;
-use mips_processor::config::Version;
-use mips_processor::instruction::Instruction;
-use mips_processor::instruction::InstructionType;
+use mips_weaver::config::Config;
+use mips_weaver::config::Version;
+use mips_weaver::instruction::Instruction;
+use mips_weaver::instruction::InstructionType;
 
 #[test]
 fn test_instruction_version() {
@@ -712,11 +712,11 @@ fn test_pseudo_immediate() {
         "sdc2 $0, -0x401($0)",
     ];
     let cfgr5 = Config {
-        version: mips_processor::config::Version::R5,
+        version: mips_weaver::config::Version::R5,
         ..Default::default()
     };
     let cfgr6 = Config {
-        version: mips_processor::config::Version::R6,
+        version: mips_weaver::config::Version::R6,
         ..Default::default()
     };
 

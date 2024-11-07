@@ -1,11 +1,11 @@
-use mips_processor::config::Config;
-use mips_processor::err::MIPSParseError;
-use mips_processor::err::ParseErrorType;
-use mips_processor::instruction::Instruction;
-use mips_processor::memory::FloatType;
-use mips_processor::memory::Memory;
-use mips_processor::register::Processor;
-use mips_processor::register::Register;
+use mips_weaver::config::Config;
+use mips_weaver::err::MIPSParseError;
+use mips_weaver::err::ParseErrorType;
+use mips_weaver::instruction::Instruction;
+use mips_weaver::memory::FloatType;
+use mips_weaver::memory::Memory;
+use mips_weaver::register::Processor;
+use mips_weaver::register::Register;
 
 #[test]
 fn test_compile_errors() {

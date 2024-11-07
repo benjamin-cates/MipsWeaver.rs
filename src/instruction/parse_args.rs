@@ -52,9 +52,9 @@ impl FromStr for IndexedAddr {
     /// Parses the indexed address
     /// Example
     /// ```
-    /// use mips_processor::instruction::IndexedAddr;
-    /// use mips_processor::memory::Memory;
-    /// use mips_processor::register::Register;
+    /// use mips_weaver::instruction::IndexedAddr;
+    /// use mips_weaver::memory::Memory;
+    /// use mips_weaver::register::Register;
     /// assert_eq!(
     ///     "$0($1)".parse::<IndexedAddr>().unwrap(),
     ///     IndexedAddr(Register::new_gpr(0), Register::new_gpr(1))
