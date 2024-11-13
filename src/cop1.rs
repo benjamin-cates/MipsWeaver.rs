@@ -124,8 +124,38 @@ impl FloatingPointControl {
             None
         }
     }
-    fn set_register(&self, cfg: &Config, id: usize, value: u32) -> Option<()> {
-        None
+    pub fn set_register(&mut self, cfg: &Config, id: usize, value: u32) -> Option<()> {
+        if id == 0 {
+            Some(())
+        }
+        else if id == 1 && cfg.version == Version::R5 {
+            Some(())
+        }
+        else if id == 31 {
+            let mask = if cfg.version == Version::R6 {
+                0xFF03_FFFF
+            }
+            else {
+                0xFF43_FFFF
+            };
+            self.fcsr = (self.fcsr & (!mask)) | (value & mask);
+            Some(())
+        }
+        else if id == 25 && cfg.version != Version::R6 {
+            self.fcsr = (self.fcsr & 0x017F_FFFF) | ((value & 0xF7) << 24) | ((value & 1) << 23);
+            Some(())
+        }
+        else if id == 26 {
+            self.fcsr = (self.fcsr & 0xFFFC_0F83) | (value & 0x0003_F07C);
+            Some(())
+        }
+        else if id == 28 {
+            self.fcsr = (self.fcsr & 0xFEFF_F07C) | (value & 0x0000_0F83) | ((value & 4) << 22);
+            Some(())
+        }
+        else {
+            None
+        }
     }
 
 }
