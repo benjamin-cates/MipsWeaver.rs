@@ -18,7 +18,6 @@ pub struct Memory {
     pub instructions: Vec<Instruction>,
     pub cop1: FloatingPointControl,
     pub cop0: Cop0,
-    pub llbit: bool,
 }
 impl Memory {
     pub fn is_kernel(&self) -> bool {
@@ -41,7 +40,6 @@ impl Default for Memory {
             labels: HashMap::new(),
             cop0: Cop0::default(),
             cop1: FloatingPointControl::default(),
-            llbit: false,
         };
         // Global pointer initialization
         out.registers[28] = 0x1000_8000;

@@ -593,19 +593,19 @@ impl Instruction {
                 let addr = sum_addr.evaluate(&mem);
                 let value = mem.load_word(addr)?;
                 mem.history.push(mem.reg(rt.id));
-                mem.history.push(if mem.llbit { 1 } else { 0 });
+                mem.history.push(mem.cop0.lladdr);
                 mem.set_reg(rt.id, value);
-                mem.llbit = true
+                mem.cop0.lladdr = addr | 1;
             }
             I::LoadLinkedWordPaired((rd, rt, base)) => {
                 let addr = mem.reg(base.id);
                 let value: u64 = mem.load_doubleword(addr)?;
                 mem.history.push(mem.reg(rd.id));
                 mem.history.push(mem.reg(rt.id));
-                mem.history.push(if mem.llbit { 1 } else { 0 });
+                mem.history.push(mem.cop0.lladdr);
                 mem.set_reg(rd.id, (value << 32) as u32);
                 mem.set_reg(rt.id, (value & 0xFFFFFFFF) as u32);
-                mem.llbit = true;
+                mem.cop0.lladdr = addr | 1;
             }
             I::LoadScaledAddress((rd, rs, rt, Immediate(sa))) => {
                 let scaling_factor = 2 << sa;
@@ -910,7 +910,7 @@ impl Instruction {
                 mem.set_reg(rt.id, mem.reg(rs.id) | (imm as u16 as u32));
             }
             I::Pause => {
-                if mem.llbit == false {
+                if (mem.cop0.lladdr & 1) == 0 {
                     return Ok(ExecutionAction::Wait);
                 }
             }
@@ -993,21 +993,30 @@ impl Instruction {
                 let address = sum_addr.evaluate(&mem);
                 mem.history.push(mem.load_word(address)?);
                 mem.history.push(mem.reg(rt.id));
-                if mem.llbit {
+                if (mem.cop0.lladdr & 1) == 1 {
                     mem.store_word(address, mem.reg(rt.id))?;
+                    mem.set_reg(rt.id, 1);
                 }
-                mem.set_reg(rt.id, if mem.llbit {1} else {0});
-                mem.llbit = false;
+                else {
+                    mem.set_reg(rt.id, 0);
+                }
+                // Set the LL bit to zero
+                mem.cop0.lladdr &= 0xFFFF_FFFE;
             }
             I::StoreConditionalPairedWord((rt, rd, base)) => {
                 let address = mem.reg(base.id);
                 mem.history.push(mem.reg(rt.id));
                 mem.history.push_u64(mem.load_doubleword(address)?);
-                if mem.llbit {
+                if (mem.cop0.lladdr & 1) == 1 {
                     mem.store_doubleword(address, (mem.reg(rd.id) as u64) << 32 | (mem.reg(rt.id) as u64))?;
+                    mem.set_reg(rt.id, 1);
                 }
-                mem.set_reg(rt.id, if mem.llbit {1} else {0});
-                mem.llbit = false;
+                else {
+                    mem.set_reg(rt.id, 0);
+                }
+                mem.history.push(mem.cop0.lladdr);
+                // Set the LL bit to zero
+                mem.cop0.lladdr &= 0xFFFF_FFFE;
             }
             I::SwDebugBreak(_) => {
                 return Ok(ExecutionAction::Wait);
