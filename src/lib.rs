@@ -1,4 +1,3 @@
-pub(crate) mod bit_builder;
 pub mod config;
 pub mod err;
 pub mod instruction;

@@ -3,7 +3,6 @@ use std::io::{self, Read};
 use config::Config;
 use memory::Memory;
 
-pub(crate) mod bit_builder;
 pub mod config;
 pub mod err;
 pub mod instruction;

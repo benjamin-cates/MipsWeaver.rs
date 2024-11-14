@@ -101,8 +101,6 @@ impl FromStr for IndexedAddr {
 impl FromStr for SumAddress {
     type Err = MIPSParseError;
     /// Parses sum addresses
-    /// General form: label+offset(reg)
-    /// Variants: offset(reg), label(reg), (reg), offset+label, offset, label
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let paren = s.find("(");
         let plus = s.find("+").or(s.find("-"));

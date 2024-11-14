@@ -1,5 +1,5 @@
 use crate::{
-    bit_builder,
+    util,
     config::{Config, Version},
     instruction::{types::Likely, Comparison, Immediate},
     memory::{linker::LinkerTask, FloatType, IntType},
@@ -58,7 +58,7 @@ impl Register {
 // Example: `assert_eq!(build!((0b011000,6),(0,10),(0b001,3),(0,13)),0b011000000000000000010000000000000u32)`
 macro_rules! build {
     ($($x:expr),+) => {
-        bit_builder::from_sections(&[$($x),+])
+        util::bit_builder(&[$($x),+])
     }
 }
 /// Set the register id and offset of the instructions
