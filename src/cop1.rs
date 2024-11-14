@@ -1,6 +1,12 @@
 use crate::{config::{Config, Version}, err::RuntimeException};
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+/// Manages floating point control and status registers
+/// Relevant registers
+/// - Register 0: the floating point implementation register
+/// - Register 1: User floating point register mode control (release 5 only)
+/// - Register 31: Floating point control and status register (manages condition codes and exceptions)
+/// Registers that are not required by the specification are left unimplemented
 pub struct FloatingPointControl {
     ufr: u32,
     fcsr: u32,
@@ -17,12 +23,12 @@ impl Default for FloatingPointControl {
 
 #[derive(Clone, Copy, Debug, Hash)]
 pub enum FloatingPointException {
+    UnimplementedOperation,
     InvalidOperation,
     DivideByZero,
     Overflow,
     Underflow,
     Inexact,
-    UnimplementedOperation,
 }
 impl From<FloatingPointException> for RuntimeException {
     fn from(value: FloatingPointException) -> Self {
@@ -37,6 +43,7 @@ impl From<FloatingPointException> for RuntimeException {
     }
 }
 impl FloatingPointException {
+    /// Get the index of the exception as ordered in the floating point control and status register
     fn idx(&self) -> usize {
         match self {
             Self::Inexact => 0,
@@ -61,9 +68,13 @@ impl FloatingPointException {
 }
 
 impl FloatingPointControl {
+    /// Returns whether "flush subnormals" is enabled in the floating point control and status register.
     pub fn flush_subnormals(&self) -> bool {
         (self.fcsr >> 24 & 0x1) == 1
     }
+    /// Log an error with the floating point coprocessor.
+    /// If the error is enabled, set the cause and flag and throw the error.
+    /// If the error is not enabled, set the flag and continue execution.
     pub fn try_error(&mut self, fpe: FloatingPointException) -> Result<(), FloatingPointException> {
         if self.if_enabled(fpe) {
             self.set_cause(fpe);
@@ -74,26 +85,47 @@ impl FloatingPointControl {
             Ok(())
         }
     }
+    /// Returns true if the floating point condition code bit at `idx` is true.
+    /// Conditions: `idx` must be a number between 0 and 7.
     pub fn get_condition_code(&self, idx: usize) -> bool {
-        ((self.fcsr >> (24 + idx)) & 0x1) == 1
+        if idx == 0 {
+            ((self.fcsr >> 23) & 1) == 1
+        }
+        else {
+            ((self.fcsr >> (24 + idx)) & 0x1) == 1
+        }
     }
+    /// Returns true if this type of exception is enabled in the floating point control and status register.
     pub fn if_enabled(&self, fpe: FloatingPointException) -> bool {
         ((self.fcsr >> (7 + fpe.idx())) & 1) == 1
     }
+    /// Returns true if a flag is raised for this type of exception in the floating point control and status register.
     pub fn has_flag(&self, fpe: FloatingPointException) -> bool {
         ((self.fcsr >> (2 + fpe.idx())) & 1) == 1
     }
+    /// Returns the most significant cause in the cause field of the floating point control and status register.
+    /// If there are no causes, returns None.
+    /// Causes are ordered by importance of:
+    /// - [`FloatingPointException::UnimplementedOperation`]
+    /// - [`FloatingPointException::InvalidOperation`]
+    /// - [`FloatingPointException::DivideByZero`]
+    /// - [`FloatingPointException::Overflow`]
+    /// - [`FloatingPointException::Underflow`]
+    /// - [`FloatingPointException::Inexact`]
     pub fn get_cause(&self) -> Option<FloatingPointException> {
         let cause_field = (self.fcsr >> 12) & 0x3F;
         FloatingPointException::from_idx(31 - (cause_field.leading_zeros() as i32))
     }
+    /// Sets the cause bit and the flag bit of this exception type in the floating point control and status register to true.
     pub fn set_cause(&mut self, fpe: FloatingPointException) {
         self.fcsr |= (1 << (fpe.idx() + 12)) | (1 << (fpe.idx() + 2))
     }
+    /// Sets the flag bit of this exception type in the floating point control and status register to true.
     pub fn set_flag(&mut self, fpe: FloatingPointException) {
         self.fcsr |= 1 << (fpe.idx() + 2)
     }
-    pub fn get_register(&self, cfg: &Config, id: usize) -> Option<u32> {
+    /// Returns the value of the control register `id`, if it exists.
+    pub fn get_control_register(&self, cfg: &Config, id: usize) -> Option<u32> {
         if id == 0 {
             if cfg.version == Version::R6 || cfg.version == Version::R1 {
                 Some(0x00F30000)
@@ -124,7 +156,9 @@ impl FloatingPointControl {
             None
         }
     }
-    pub fn set_register(&mut self, cfg: &Config, id: usize, value: u32) -> Option<()> {
+    /// Sets the value of the control register `id` to `value`. Readonly bits are left unchanged.
+    /// If the register is not implemented, returns None.
+    pub fn set_control_register(&mut self, cfg: &Config, id: usize, value: u32) -> Option<()> {
         if id == 0 {
             Some(())
         }

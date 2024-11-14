@@ -1,5 +1,5 @@
 use crate::{
-    bit_builder::BitBuilder,
+    bit_builder,
     config::{Config, Version},
     instruction::{types::Likely, Comparison, Immediate},
     memory::{linker::LinkerTask, FloatType, IntType},
@@ -9,6 +9,7 @@ use crate::{
 use super::{Instruction, Label, Sign, SumAddress};
 
 impl IntType {
+    /// Encode as a built builder piece with its 5 bit representation (only present in floating point instructions).
     fn enc5(&self) -> (u32, usize) {
         match self {
             Self::Byte => panic!("Cannot serialize byte type"),
@@ -17,6 +18,7 @@ impl IntType {
             Self::Doubleword => (0b10101, 5),
         }
     }
+    /// Encode as a built builder piece with its 3 bit representation (only present in floating point instructions).
     fn enc3(&self) -> (u32, usize) {
         match self {
             Self::Byte => panic!("Cannot serialize byte type"),
@@ -28,6 +30,7 @@ impl IntType {
 }
 
 impl FloatType {
+    /// Encode as a built builder piece with its 5 bit representation
     fn enc5(&self) -> (u32, usize) {
         match self {
             Self::Single => (0b10000, 5),
@@ -35,6 +38,7 @@ impl FloatType {
             Self::PairedSingle => (0b10110, 5),
         }
     }
+    /// Encode as a built builder piece with its 3 bit representation
     fn enc3(&self) -> (u32, usize) {
         match self {
             Self::Single => (0b000, 3),
@@ -51,13 +55,14 @@ impl Register {
     }
 }
 // Shorthand to create a single instrcution using bit builder
-// Shorthand to create a bit builder
 // Example: `assert_eq!(build!((0b011000,6),(0,10),(0b001,3),(0,13)),0b011000000000000000010000000000000u32)`
 macro_rules! build {
     ($($x:expr),+) => {
-        BitBuilder::from_sections(&[$($x),+])
+        bit_builder::from_sections(&[$($x),+])
     }
 }
+/// Set the register id and offset of the instructions
+/// This assumes the sum address will fit in the register and that any pseudo instruction has already been split.
 fn sum_addr_handler(
     inst: u32,
     reg_idx: usize,
@@ -75,6 +80,7 @@ fn sum_addr_handler(
     return inst;
 }
 
+/// Return the offset of this label or add it to the list of linker tasks
 fn fill_label(lt: &mut Vec<LinkerTask>, pc: u32, offset: usize, len: usize, label: &Label) -> u32 {
     match label {
         Label::Name(_) => {
@@ -85,6 +91,7 @@ fn fill_label(lt: &mut Vec<LinkerTask>, pc: u32, offset: usize, len: usize, labe
         Label::AlignedOffset(offset) => *offset as u32 & ((1 << len) - 1) as u32,
     }
 }
+/// Return 256 MB aligned jump location or push task to the linker
 fn fill_jump(lt: &mut Vec<LinkerTask>, pc: u32, offset: usize, len: usize, label: &Label) -> u32 {
     match label {
         Label::Name(_) => {
@@ -97,6 +104,9 @@ fn fill_jump(lt: &mut Vec<LinkerTask>, pc: u32, offset: usize, len: usize, label
 }
 
 impl Instruction {
+    /// Encode the instruction as a 4-byte sequence. Any unknown labels will be added to the list of linker tasks.
+    /// If the operation cannot be encoded in a single instruction, encoding may be broken.
+    /// If the instruction could possibly be a pseudo instruction, run it through [`crate::memory::Memory::translate_pseudo_instruction`] first. 
     pub fn serialize(&self, cfg: &Config, pc: u32, linker_tasks: &mut Vec<LinkerTask>) -> u32 {
         serialize(&self, cfg, pc, linker_tasks)
     }
@@ -112,7 +122,6 @@ fn serialize(
     use Instruction as I;
     use Sign::Signed as S;
     use Sign::Unsigned as U;
-    let at = Register::new_gpr(1);
     let cop1 = (0b010001, 6);
     let cop1x = (0b010011, 6);
     let z6 = (0b000000, 6);

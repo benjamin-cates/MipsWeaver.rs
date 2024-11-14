@@ -65,7 +65,7 @@ impl FromStr for Sign {
     }
 }
 
-pub fn trimmed_parse<R>(
+pub(crate) fn trimmed_parse<R>(
     str: &str,
     mut func: impl FnMut(&str) -> Result<R, MIPSParseError>,
 ) -> Result<R, MIPSParseError> {
@@ -839,6 +839,7 @@ fn parse_instruction_helper(
 }
 
 impl Instruction {
+    /// Parses a single line of code and returns the instruction on success or an error on failure.
     pub fn parse(str: &str, cfg: &Config) -> Result<Self, MIPSParseError> {
         trimmed_parse(str, |str| {
             let name = str.split(" ").nth(0).unwrap();

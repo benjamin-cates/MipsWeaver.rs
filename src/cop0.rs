@@ -1,8 +1,6 @@
 use crate::config::Config;
 
-/// Status register fields
-/// CU
-
+/// Coprocessor 0 status/control registers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cop0 {
     pub(crate) user_local: u32,
@@ -53,6 +51,7 @@ fn overwrite_bits(initial: u32, mask: u32, val: u32) -> u32 {
 }
 
 impl Cop0 {
+    /// Get register specified by the index and selection field. If the register is not implemented, returns None.
     pub fn get_register(&self, cfg: &Config, index: usize, sel: usize) -> Option<u32> {
         match (index, sel) {
             (4, 2) => Some(self.user_local),
@@ -84,6 +83,7 @@ impl Cop0 {
             (_, _) => None,
         }
     }
+    /// Sets the writeable bits of register specified by the index and selection field to the passed value. If the register is not implemented, returns None.
     pub fn set_register(&mut self, _cfg: &Config, index: usize, sel: usize, val: u32) {
         match (index, sel) {
             (4,2) => self.user_local = val,

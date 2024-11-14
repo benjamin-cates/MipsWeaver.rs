@@ -18,35 +18,54 @@ impl MIPSParseError {
     }
 }
 
+/// Cause of a [`MIPSParseError`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ParseErrorType {
+    /// Instruction does not exist or does not exist in this version.
     InvalidInstruction,
+    /// Register name is for the wrong processor.
     WrongProcessor,
+    /// Preprocessor directive does not exist.
     InvalidCommand,
+    /// Unexpected character.
     InvChar,
+    /// Literal is invalid.
     InvalidLiteral,
+    /// Label is invalid. Labels that start with a number or contain specieal characters are not allowed.
     InvalidLabel,
+    /// Instruction is unimplemented.
     Unimplemented,
+    /// Literal is out of bounds for this instruction. Associated value is either the maximum or minimum (depending on what side the literal is on).
     LitBounds(i64),
+    /// Register name is invalid
     InvalidRegisterName,
+    /// Floating point register cannot hold right value
     WrongRegisterType,
-    // (expected, found)
+    /// Instruction is missing arguments.
+    /// First associated value is the number expected, the second one is the number found.
     MissingArg(usize, usize),
-    // (expected, found)
+    /// Instruction has too many arguments.
+    /// First associated value is the number expected, the second one is the number found.
     TooManyArgs(usize, usize),
-    // Allowed bits
+    /// Literal is too large.
+    /// Associated value is the number of bits.
     LiteralTooLarge(usize),
+    /// Label not found.
     UndefinedLabel,
-    // (max_version)
+    /// Instruction is deprecated. Associated value is the newest version that supports it.
     Deprecated(Version),
+    /// Instruction is only valid in a newer version. Associated value is the earliest version that supports it.
     // (min_version)
     MinVersion(Version),
+    /// Preprocesssor directive found in the .text field.
     DirectiveInText,
+    /// Expected other character but found this one.
     Expected(&'static str),
+    /// Indexed address is invalid.
     InvalidIndexedAddr,
 }
 
-pub trait MIPSErrMap {
+pub(crate) trait MIPSErrMap {
     fn add_pos(self, offset: usize) -> Self;
     fn add_line(self, line: usize) -> Self;
 }

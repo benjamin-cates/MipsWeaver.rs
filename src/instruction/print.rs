@@ -65,17 +65,6 @@ macro_rules! w {
     }
 }
 
-struct DS<'a>(&'a Option<Box<Instruction>>);
-
-impl<'a> Display for DS<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(inst) = self.0 {
-            f.write_fmt(format_args!("\n{inst}"))
-        } else {
-            Ok(())
-        }
-    }
-}
 impl Display for Label {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

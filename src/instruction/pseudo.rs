@@ -14,11 +14,16 @@ use super::Sign;
 use super::SumAddress;
 use crate::memory::FloatType;
 
+/// Instruction type identified by [`Instruction::instruction_type`].
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum InstructionType {
+    /// Valid instruction whose serialization is only one word.
     Inst,
+    /// Alias instruction that is encoded as an equivalent one.
     Alias,
+    /// Pseudo instruction who may be serialized into more than one word.
     PseudoInst,
+    /// Invalid instruction (wrong version or literal out of bounds).
     Invalid(MIPSParseError),
 }
 
@@ -314,18 +319,4 @@ fn inst_type_helper(inst: &Instruction, config: &Config) -> InstructionType {
         I::Xor(_) => n,
         I::Xori((_, _, imm)) => n.pseudo_imm(&U, imm, 16),
     }
-}
-
-impl Instruction {
-    fn to_pseudo_instruction(self, ) -> (Self, Self, Self, Self) {
-        //use Instruction as I;
-        //match self {
-        //    I::AbsFloat(..) => (self, I::Nop, I::Nop, I::Nop),
-        //    I::Add(..) => (self, I::Nop, I::Nop, I::Nop),
-        //    I::Add(..) => (self, I::Nop, I::Nop, I::Nop),
-        //};
-
-        (Instruction::Nop, Instruction::Nop, Instruction::Nop, Instruction::Nop)
-    }
-
 }

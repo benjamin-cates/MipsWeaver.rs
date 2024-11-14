@@ -32,6 +32,8 @@ impl Label {
 /// - A constant offset value that's encoded in the instruction
 /// - A register
 /// All of these three elements are summed together to get an address.
+/// General form: label+offset(reg)
+/// Variants: offset(reg), label(reg), (reg), offset+label, offset, label
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct SumAddress {
     pub label: Option<String>,

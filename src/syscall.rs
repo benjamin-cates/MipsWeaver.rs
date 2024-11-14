@@ -1,6 +1,7 @@
 use crate::{err::RuntimeException, memory::Memory};
 
-pub fn syscall(mem: &mut Memory) -> Result<(), RuntimeException> {
+/// Executes a system call
+pub(crate) fn syscall(mem: &mut Memory) -> Result<(), RuntimeException> {
     // Get v0 register
     let discriminant = mem.reg(2);
     match discriminant {
