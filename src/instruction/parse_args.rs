@@ -424,7 +424,7 @@ pub(crate) fn valid_lit(
             return Err(MIPSParseError {
                 sequence: Some(str.to_owned()),
                 position: 0,
-                err_type: ParseErrorType::LitBounds(if num.0 >= max { max } else { min }),
+                err_type: ParseErrorType::LitBounds(min, max),
                 line_idx: None,
             });
         }
@@ -441,7 +441,7 @@ pub(crate) fn valid_lit_min_max(
             return Err(MIPSParseError {
                 sequence: Some(str.to_owned()),
                 position: 0,
-                err_type: ParseErrorType::LitBounds(if num.0 >= max { max } else { min }),
+                err_type: ParseErrorType::LitBounds(min, max),
                 line_idx: None,
             });
         }
@@ -499,18 +499,11 @@ pub(crate) fn is_cop2(reg: &Register, str: &str) -> Result<(), MIPSParseError> {
 pub(crate) fn aligned_offset(label: &Label, str: &str) -> Result<(), MIPSParseError> {
     match label {
         Label::Offset(val) => {
-            if *val < 0 {
+            if *val < 0 || *val > 0x03FFFFFF {
                 Err(MIPSParseError {
                     sequence: Some(str.to_string()),
                     position: 0,
-                    err_type: ParseErrorType::LitBounds(0),
-                    line_idx: None,
-                })
-            } else if *val > 0x03FFFFFF {
-                Err(MIPSParseError {
-                    sequence: Some(str.to_string()),
-                    position: 0,
-                    err_type: ParseErrorType::LitBounds(0x03FFFFFF),
+                    err_type: ParseErrorType::LitBounds(0, 0x03FFFFFF),
                     line_idx: None,
                 })
             } else {

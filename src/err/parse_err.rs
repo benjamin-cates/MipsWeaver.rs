@@ -35,8 +35,8 @@ pub enum ParseErrorType {
     InvalidLabel,
     /// Instruction is unimplemented.
     Unimplemented,
-    /// Literal is out of bounds for this instruction. Associated value is either the maximum or minimum (depending on what side the literal is on).
-    LitBounds(i64),
+    /// Literal is out of bounds for this instruction. Associated values are the allowed minimum and maximum values.
+    LitBounds(i64, i64),
     /// Register name is invalid
     InvalidRegisterName,
     /// Floating point register cannot hold right value
@@ -47,9 +47,6 @@ pub enum ParseErrorType {
     /// Instruction has too many arguments.
     /// First associated value is the number expected, the second one is the number found.
     TooManyArgs(usize, usize),
-    /// Literal is too large.
-    /// Associated value is the number of bits.
-    LiteralTooLarge(usize),
     /// Label not found.
     UndefinedLabel,
     /// Instruction is deprecated. Associated value is the newest version that supports it.

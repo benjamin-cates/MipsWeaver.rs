@@ -415,7 +415,7 @@ fn parse_instruction_helper(
             )?;
             if parsed_args.2 .0 + parsed_args.3 .0 - 1 > 32 {
                 Err(MIPSParseError {
-                    err_type: ParseErrorType::LitBounds(32 - parsed_args.2 .0),
+                    err_type: ParseErrorType::LitBounds(0, 32 - parsed_args.2 .0),
                     line_idx: None,
                     position: 0,
                     sequence: Some(args.to_owned()),

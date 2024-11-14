@@ -33,7 +33,7 @@ impl InstructionType {
             InstructionType::Invalid(MIPSParseError {
                 sequence: None,
                 position: 0,
-                err_type: crate::err::ParseErrorType::LiteralTooLarge(bits),
+                err_type: crate::err::ParseErrorType::LitBounds(0, (1i64 << bits) - 1),
                 line_idx: None,
             })
         } else {

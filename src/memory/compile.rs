@@ -141,10 +141,10 @@ fn parse_word_segment(
             Err(throw(num, ParseErr::InvalidLiteral))?
         };
         if parsed > data_mode.max_int() {
-            Err(throw(num, ParseErr::LitBounds(data_mode.max_int())))?
+            Err(throw(num, ParseErr::LitBounds(data_mode.min_int(), data_mode.max_int())))?
         }
         if parsed < data_mode.min_int() {
-            Err(throw(num, ParseErr::LitBounds(data_mode.min_int())))?
+            Err(throw(num, ParseErr::LitBounds(data_mode.min_int(), data_mode.min_int())))?
         }
         if data_mode == DataMode::Word {
             align_pointer(ptr, 4, &mut mem.labels);
