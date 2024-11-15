@@ -20,6 +20,9 @@ impl Memory {
             self.undo()?;
             return Some(());
         }
+        if self.program_counter == 0x0040_0000 {
+            return None;
+        }
         self.program_counter -= 4;
         let idx = ((self.program_counter - 0x0040_0000) / 4) as usize;
         let inst = &self.instructions[idx];

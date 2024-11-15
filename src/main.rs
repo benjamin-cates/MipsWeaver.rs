@@ -1,4 +1,4 @@
-use std::io::{self, Read};
+use std::{env, io::{self, Read}};
 
 use config::Config;
 use memory::Memory;
@@ -14,6 +14,7 @@ pub mod syscall;
 mod util;
 
 fn main() -> io::Result<()> {
+
     let mut buffer = Vec::<u8>::new();
     io::stdin().read_to_end(&mut buffer)?;
     let str = String::from_utf8(buffer).unwrap();
@@ -22,7 +23,14 @@ fn main() -> io::Result<()> {
         .init_from_code(str.as_str(), &cfg)
         .unwrap();
     mem.program_counter = 0x0040_0000;
-    //println!("{:?}", mem);
+    let clone = mem.clone();
     mem.run().unwrap();
+    println!("{:?}", mem.history);
+    for _ in 0..env::args().nth(1).unwrap().parse::<usize>().unwrap() {
+        if mem.undo().is_none() {
+            break;
+        }
+    }
+    assert_eq!(mem, clone);
     Ok(())
 }

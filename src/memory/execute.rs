@@ -33,9 +33,9 @@ impl Memory {
                 self.program_counter += 4;
             }
             ExecutionAction::Jump(address) => {
-                self.program_counter = address;
                 self.history
-                    .add_jump(self.program_counter, address, delay_slot_executed);
+                    .add_jump(self.program_counter - 4, address, delay_slot_executed);
+                self.program_counter = address;
             }
             ExecutionAction::Trap => {
                 return Ok(false);
