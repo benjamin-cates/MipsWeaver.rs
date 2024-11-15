@@ -103,7 +103,9 @@ fn parse_instruction_helper(
             let val = &valid_float(ft.unwrap());
             I::AddFloat(ft.unwrap(), parse_three_args(args, (val, val, val))?)
         }
-        "addiupc" => I::AddImmediatePC(parse_two_args(args, (is_gpr, valid_lit(Sign::Signed, 19)))?),
+        "addiupc" => {
+            I::AddImmediatePC(parse_two_args(args, (is_gpr, valid_lit(Sign::Signed, 19)))?)
+        }
         "align" => I::Align(parse_four_args(
             args,
             (is_gpr, is_gpr, is_gpr, valid_lit(U, 2)),
@@ -260,7 +262,9 @@ fn parse_instruction_helper(
                 (valid_float(FloatType::Single), valid_float(ft.unwrap())),
             )?,
         ),
-        "cfc1" => I::CopyFromControlCop(Processor::Cop(1), parse_two_args(args, (is_gpr, is_cop1))?),
+        "cfc1" => {
+            I::CopyFromControlCop(Processor::Cop(1), parse_two_args(args, (is_gpr, is_cop1))?)
+        }
         "cfc2" => Err(MIPSParseError {
             sequence: Some(name.to_owned()),
             position: 0,
@@ -311,7 +315,7 @@ fn parse_instruction_helper(
             err_type: ParseErrorType::Unimplemented,
             line_idx: None,
         })?,
-        "cvt.d.s" | "cvt.s.d"  => {
+        "cvt.d.s" | "cvt.s.d" => {
             let ft2 = name[3..5].parse().unwrap();
             I::CvtFloats(
                 ft2,
@@ -319,11 +323,14 @@ fn parse_instruction_helper(
                 parse_two_args(args, (valid_float(ft2), valid_float(ft.unwrap())))?,
             )
         }
-        "cvt.ps.s" => {
-            I::CvtToPS(
-                parse_three_args(args, (valid_float(FloatType::PairedSingle), valid_float(FloatType::Single), valid_float(FloatType::Single)))?,
-            )
-        }
+        "cvt.ps.s" => I::CvtToPS(parse_three_args(
+            args,
+            (
+                valid_float(FloatType::PairedSingle),
+                valid_float(FloatType::Single),
+                valid_float(FloatType::Single),
+            ),
+        )?),
         "cvt.d.l" | "cvt.d.w" | "cvt.s.l" | "cvt.s.w" => {
             let ft = name[3..5].parse().unwrap();
             I::CvtToFloat(
@@ -647,10 +654,7 @@ fn parse_instruction_helper(
         "nop" => I::Nop,
         "nor" => I::Nor(parse_three_args(args, (is_gpr, is_gpr, is_gpr))?),
         "or" => I::Or(parse_three_args(args, (is_gpr, is_gpr, is_gpr))?),
-        "ori" => I::OrImmediate(parse_three_args(
-            args,
-            (is_gpr, is_gpr, valid_lit(U, 32)),
-        )?),
+        "ori" => I::OrImmediate(parse_three_args(args, (is_gpr, is_gpr, valid_lit(U, 32)))?),
         "pause" => I::Pause,
         "pll.ps" | "plu.ps" | "pul.ps" | "puu.ps" => {
             let val = &valid_float(FloatType::PairedSingle);

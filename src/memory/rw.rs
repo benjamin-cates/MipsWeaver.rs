@@ -183,13 +183,18 @@ impl Memory {
             IntType::Doubleword => Ok(self.load_doubleword(address)?),
         }
     }
-    
+
     /// Writes an int type `it` to memory
     /// If the address is not 8-byte aligned and unaligned writes are not allowed, returns
     /// [`RuntimeException::UnalignedReadWrite`]
     /// If the address reads into kernel memory when the state is not in kernel mode, returns
     /// [`RuntimeException::KernelMem`]
-    pub fn store_int(&mut self, it: IntType, address: u32, val: u64) -> Result<(), RuntimeException> {
+    pub fn store_int(
+        &mut self,
+        it: IntType,
+        address: u32,
+        val: u64,
+    ) -> Result<(), RuntimeException> {
         match it {
             IntType::Byte => self.store_byte(address, val as u8),
             IntType::Halfword => self.store_halfword(address, val as u16),
@@ -197,7 +202,6 @@ impl Memory {
             IntType::Doubleword => self.store_doubleword(address, val),
         }
     }
-    
 }
 // Register read-write functions
 impl Memory {
@@ -229,7 +233,10 @@ impl Memory {
     }
     /// Reads paired single floating point register as (upper, lower)
     pub fn get_ps(&self, id: usize) -> (f32, f32) {
-        (f32::from_bits((self.cop1_reg[id] >> 32) as u32), f32::from_bits((self.cop1_reg[id] & 0xFFFFFFFF) as u32))
+        (
+            f32::from_bits((self.cop1_reg[id] >> 32) as u32),
+            f32::from_bits((self.cop1_reg[id] & 0xFFFFFFFF) as u32),
+        )
     }
     /// Writes paired single floating point register as (upper, lower)
     pub fn set_ps(&mut self, id: usize, num: (f32, f32)) {

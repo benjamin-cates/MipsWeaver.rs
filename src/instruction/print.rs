@@ -110,7 +110,9 @@ impl Display for Instruction {
         match *self {
             I::AbsFloat(ft, (dst, src)) => w!(f, "abs.{ft} {dst}, {src}"),
             I::Add(sign, (dst, src1, src2)) => w!(f, "add{sign} {dst}, {src1}, {src2}"),
-            I::AddImmediate(sign, (dst, src1, Imm(imm))) => w!(f, "addi{sign} {dst}, {src1}, {imm}"),
+            I::AddImmediate(sign, (dst, src1, Imm(imm))) => {
+                w!(f, "addi{sign} {dst}, {src1}, {imm}")
+            }
             I::AddFloat(ft, (dst, src1, src2)) => w!(f, "add.{ft} {dst}, {src1}, {src2}"),
             I::AddImmediatePC((rs, Imm(imm))) => w!(f, "addiupc {rs}, {imm}"),
             I::Align((rd, rs, rt, Imm(bp))) => w!(f, "align {rd}, {rs}, {rt}, {bp}"),

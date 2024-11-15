@@ -84,7 +84,6 @@ impl Memory {
                     self.store_word(pc, inst).unwrap();
                 }
                 _ => todo!(),
-
             }
         }
         Ok(())

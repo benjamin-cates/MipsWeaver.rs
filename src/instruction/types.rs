@@ -180,7 +180,6 @@ pub const INSTRUCTION_LIST: [&'static str; 135] = [
 /// Stores a singular MIPS instruction or pseudo-instruction.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Instruction {
-
     /// For instructions `abs.s`, `abs.d`, and `abs.ps`
     /// Operation is fpr[dst] = abs(fpr[rs])
     AbsFloat(FloatType, (Register, Register)),
@@ -225,7 +224,7 @@ pub enum Instruction {
     /// Immediate must be a 16 bit unsigned integer.
     /// Operation is `gpr[dst] = gpr[src] + (imm << 16)`
     AddUpperImmediate((Register, Register, Immediate)),
-    
+
     /// For instruction `auipc`.
     /// Operation is `gpr[dst] = pc + (imm << 16)`.
     AddUpperImmediatePC((Register, Immediate)),
@@ -273,7 +272,7 @@ pub enum Instruction {
     /// The comparison is `gpr[src] {cmp} 0`.
     BranchCompactZeroLink(Comparison, (Register, Label)),
 
-    /// For instruction `bitswap`. 
+    /// For instruction `bitswap`.
     /// Reverses all of the bits in each byte.
     /// Operation is `gpr[dst] = bitswap(gpr[src])`.
     Bitswap((Register, Register)),
@@ -298,11 +297,11 @@ pub enum Instruction {
     /// Operation is `fpr[dst] = fpr[src].ceil()`.
     /// Where the `dst` register type is specified by the int type and the `src` register type is specified by the float type.
     Ceil(IntType, FloatType, (Register, Register)),
-    
+
     /// For instructions `cfc1` and `cfc2`.
     /// Moves the control word from the coprocessor into a gpr.
     CopyFromControlCop(Processor, (Register, Register)),
-    
+
     /// For instructions `class.s` and `class.d`.
     /// Classifies the value in the floating point register and stores the classification id in the floating point destination.
     /// Bits
@@ -342,7 +341,7 @@ pub enum Instruction {
     /// (not sure what this does :skull:)
     Crc32C(IntType, (Register, Register)),
 
-    /// For instructions `ctc1` and `ctc2`. 
+    /// For instructions `ctc1` and `ctc2`.
     /// Moves a gpr into the control word of a coprocessor.
     CopyToControlCop(Processor, (Register, Register)),
 
@@ -416,7 +415,7 @@ pub enum Instruction {
     /// Operation is `fpr[dst] = fpr[src].floor()`.
     /// Where the `dst` register type is specified by the int type and the `src` register type is specified by the float type.
     Floor(IntType, FloatType, (Register, Register)),
-    
+
     /// For instruction `ginvi`.
     /// Does nothing.
     Ginvi(Register),
@@ -463,7 +462,7 @@ pub enum Instruction {
     /// For instructions `ldc1`, `ldc2`, `lwc1`, `lwc2`.
     /// Loads word from memory into the register on the coprocessor
     LoadCop(Processor, IntType, (Register, SumAddress)),
-    
+
     /// For instrutions `lwxc1` and `ldxc1`.
     /// Loads value at indexed address into cop1 register.
     LoadIndexedCop1(IntType, (Register, IndexedAddr)),
@@ -605,15 +604,15 @@ pub enum Instruction {
     /// For instruction `mult` and `multu`.
     /// Multiplies the two registers and saves the result in hi and lo.
     Mult(Sign, (Register, Register)),
-    
+
     /// For instruction `nal`.
     /// Stores the address of the next instruction in $ra (reg 31) and continues.
     NopLink,
-    
+
     /// For instructions `neg.s`, `neg.d`, and `neg.ps`.
     /// Negates the floating point value.
     NegFloat(FloatType, (Register, Register)),
-    
+
     /// For instruction `nop`.
     /// Does nothing
     Nop,
@@ -724,7 +723,7 @@ pub enum Instruction {
         Comparison,
         (Register, Register, Register),
     ),
-    
+
     /// For instruction `sigrie`.
     /// Signals a [`crate::err::RuntimeException::ReservedInstruction`] exception.
     SigReservedInstruction(Immediate),
@@ -736,7 +735,7 @@ pub enum Instruction {
     /// For instruction `sllv`.
     /// Shifts left based on the number in the third register.
     ShiftLeftLogicalVar((Register, Register, Register)),
-    
+
     /// For instructions `slt` and `sltu`.
     /// Set to one or zero based on comparison.
     SetOnLessThan(Sign, (Register, Register, Register)),
@@ -845,7 +844,7 @@ pub enum Instruction {
     /// For instruction `wsbh`.
     /// Operation is `gpr[dst] = ((gpr[src] & 0xFF00FF00) >> 8) | ((gpr[src] & 0x00FF00FF) << 8)`.
     WordSwapHalfwords((Register, Register)),
-    
+
     /// For instruction `xor`.
     /// Operation is `gpr[dst] = gpr[src1] ^ gpr[src2]`.
     Xor((Register, Register, Register)),

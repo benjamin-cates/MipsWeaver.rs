@@ -14,7 +14,10 @@ impl Memory {
     pub(crate) fn stdin_line(&mut self) -> Result<String, RuntimeException> {
         Ok(io::read_to_string(std::io::stdin()).unwrap())
     }
-    pub(crate) fn stdin_bytes_buffered(&mut self, length: usize) -> Result<Vec<u8>, RuntimeException> {
+    pub(crate) fn stdin_bytes_buffered(
+        &mut self,
+        length: usize,
+    ) -> Result<Vec<u8>, RuntimeException> {
         let mut buf = vec![0; length];
         let mut buf_1 = [0u8];
         while io::stdin().read(&mut buf_1).is_ok() {
@@ -28,5 +31,4 @@ impl Memory {
         }
         return Ok(buf);
     }
-
 }

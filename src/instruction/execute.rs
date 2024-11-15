@@ -124,8 +124,7 @@ impl Instruction {
                     mem.history.push(mem.reg(31));
                     mem.set_reg(31, mem.program_counter + 4);
                     return Ok(ExecutionAction::Jump(label.get_address(mem)));
-                }
-                else if mem.cfg.do_branch_delay {
+                } else if mem.cfg.do_branch_delay {
                     mem.program_counter += 4;
                     if likely == Likely::Normal {
                         execute_delay_slot(mem)?;
@@ -139,8 +138,7 @@ impl Instruction {
                         execute_delay_slot(mem)?;
                     }
                     return Ok(ExecutionAction::Jump(label.get_address(mem)));
-                }
-                else if mem.cfg.do_branch_delay {
+                } else if mem.cfg.do_branch_delay {
                     mem.program_counter += 4;
                     if likely == Likely::Normal {
                         execute_delay_slot(mem)?;
@@ -156,8 +154,7 @@ impl Instruction {
                     }
                     mem.set_reg(31, mem.program_counter);
                     return Ok(ExecutionAction::Jump(label.get_address(mem)));
-                }
-                else if mem.cfg.do_branch_delay {
+                } else if mem.cfg.do_branch_delay {
                     mem.program_counter += 4;
                     if likely == Likely::Normal {
                         execute_delay_slot(mem)?;
@@ -439,10 +436,7 @@ impl Instruction {
             }
             I::DivFloat(fmt, (fd, fs, ft)) => {
                 let (one, two) = if fmt == FloatType::Single {
-                    (
-                        mem.get_f32(fs.id) as f64,
-                        mem.get_f32(ft.id) as f64,
-                    )
+                    (mem.get_f32(fs.id) as f64, mem.get_f32(ft.id) as f64)
                 } else {
                     (mem.get_f64(fs.id), mem.get_f64(ft.id))
                 };
@@ -513,8 +507,7 @@ impl Instruction {
                 if mem.cfg.do_branch_delay {
                     execute_delay_slot(mem)?;
                     mem.set_reg(31, mem.program_counter + 4);
-                }
-                else {
+                } else {
                     mem.set_reg(31, mem.program_counter);
                 }
                 return Ok(ExecutionAction::Jump(label.get_address(mem)));
@@ -775,7 +768,12 @@ impl Instruction {
             }
             I::MoveFromCop(Cop(0), (rt, rd, Immediate(sel))) => {
                 mem.history.push(mem.reg(rt.id));
-                mem.set_reg(rt.id, mem.cop0.get_register(&mem.cfg, rd.id, sel as usize).ok_or(RuntimeException::ReservedInstruction)?);
+                mem.set_reg(
+                    rt.id,
+                    mem.cop0
+                        .get_register(&mem.cfg, rd.id, sel as usize)
+                        .ok_or(RuntimeException::ReservedInstruction)?,
+                );
             }
             I::MoveFromCop(Cop(1), (rt, fs, _)) => {
                 mem.history.push(mem.reg(rt.id));
@@ -1002,8 +1000,7 @@ impl Instruction {
                 if (mem.cop0.lladdr & 1) == 1 {
                     mem.store_word(address, mem.reg(rt.id))?;
                     mem.set_reg(rt.id, 1);
-                }
-                else {
+                } else {
                     mem.set_reg(rt.id, 0);
                 }
                 // Set the LL bit to zero
@@ -1015,10 +1012,12 @@ impl Instruction {
                 mem.history.push(mem.reg(rt.id));
                 mem.history.push(mem.cop0.lladdr);
                 if (mem.cop0.lladdr & 1) == 1 {
-                    mem.store_doubleword(address, (mem.reg(rd.id) as u64) << 32 | (mem.reg(rt.id) as u64))?;
+                    mem.store_doubleword(
+                        address,
+                        (mem.reg(rd.id) as u64) << 32 | (mem.reg(rt.id) as u64),
+                    )?;
                     mem.set_reg(rt.id, 1);
-                }
-                else {
+                } else {
                     mem.set_reg(rt.id, 0);
                 }
                 mem.history.push(mem.cop0.lladdr);
@@ -1045,7 +1044,7 @@ impl Instruction {
                 let val: u32 = match it {
                     IntType::Byte => mem.reg(rt.id) as u8 as i8 as i32 as u32,
                     IntType::Halfword => mem.reg(rt.id) as u16 as i16 as i32 as u32,
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 };
                 mem.history.push(mem.reg(rd.id));
                 mem.set_reg(rd.id, val);
@@ -1055,16 +1054,13 @@ impl Instruction {
                 if mem.reg(fd.id) & 1 == 0 {
                     if fmt == FloatType::Single {
                         mem.cop1_reg[fd.id] = mem.cop1_reg[ft.id] as u32 as u64;
-                    }
-                    else {
+                    } else {
                         mem.cop1_reg[fd.id] = mem.cop1_reg[ft.id];
                     }
-                }
-                else {
+                } else {
                     if fmt == FloatType::Single {
                         mem.cop1_reg[fd.id] = mem.cop1_reg[fs.id] as u32 as u64;
-                    }
-                    else {
+                    } else {
                         mem.cop1_reg[fd.id] = mem.cop1_reg[fs.id];
                     }
                 }
@@ -1073,8 +1069,7 @@ impl Instruction {
                 mem.history.push(mem.reg(rd.id));
                 if compare(cmp, mem.reg(rt.id) as i32, 0) {
                     mem.set_reg(rd.id, mem.reg(rs.id));
-                }
-                else {
+                } else {
                     mem.set_reg(rd.id, 0);
                 }
             }
@@ -1084,12 +1079,10 @@ impl Instruction {
                 if (cmp == Comparison::Ne) ^ (mem.cop1_reg[fd.id] & 1 == 0) {
                     if fmt == FloatType::Single {
                         mem.cop1_reg[fd.id] = mem.cop1_reg[fs.id] as u32 as u64;
-                    }
-                    else {
+                    } else {
                         mem.cop1_reg[fd.id] = mem.cop1_reg[fs.id];
                     }
-                }
-                else {
+                } else {
                     mem.cop1_reg[fd.id] = 0;
                 }
             }
@@ -1108,8 +1101,7 @@ impl Instruction {
                 mem.history.push(mem.reg(rd.id));
                 if signed_compare(sign, Comparison::Lt, mem.reg(rs.id), mem.reg(rt.id)) {
                     mem.set_reg(rd.id, 1);
-                }
-                else {
+                } else {
                     mem.set_reg(rd.id, 0);
                 }
             }
@@ -1117,8 +1109,7 @@ impl Instruction {
                 mem.history.push(mem.reg(rd.id));
                 if signed_compare(sign, Comparison::Lt, mem.reg(rs.id), imm as i32 as u32) {
                     mem.set_reg(rd.id, 1);
-                }
-                else {
+                } else {
                     mem.set_reg(rd.id, 0);
                 }
             }
@@ -1131,7 +1122,10 @@ impl Instruction {
             }
             I::ShiftRightArithmeticVar((rd, rt, rs)) => {
                 mem.history.push(mem.reg(rd.id));
-                mem.set_reg(rd.id, (mem.reg(rt.id) as i32).shr(mem.reg(rs.id) & 0x1F) as u32);
+                mem.set_reg(
+                    rd.id,
+                    (mem.reg(rt.id) as i32).shr(mem.reg(rs.id) & 0x1F) as u32,
+                );
             }
             I::ShiftRightLogical((rd, rt, Immediate(sa))) => {
                 mem.history.push(mem.reg(rd.id));

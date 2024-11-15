@@ -7,16 +7,16 @@ pub(crate) fn syscall(mem: &mut Memory) -> Result<(), RuntimeException> {
     match discriminant {
         // Print integer in $a0
         1 => {
-            mem.stdout_str(format!("{}",mem.reg(4)).as_str());
-        },
+            mem.stdout_str(format!("{}", mem.reg(4)).as_str());
+        }
         // Print float in $f12
         2 => {
-            mem.stdout_str(format!("{}",mem.get_f32(12)).as_str());
-        },
+            mem.stdout_str(format!("{}", mem.get_f32(12)).as_str());
+        }
         // Print double in $f12
         3 => {
-            mem.stdout_str(format!("{}",mem.get_f64(12)).as_str());
-        },
+            mem.stdout_str(format!("{}", mem.get_f64(12)).as_str());
+        }
         // Print string at address in $a0 and terminating with zero
         4 => {
             let mut bytes: Vec<u8> = vec![];
@@ -95,7 +95,6 @@ pub(crate) fn syscall(mem: &mut Memory) -> Result<(), RuntimeException> {
         17 => {
             todo!();
         }
-
 
         _ => {
             return Err(RuntimeException::ReservedInstruction);

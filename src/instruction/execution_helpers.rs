@@ -67,11 +67,7 @@ pub(crate) fn trinary_float(
         FloatType::Double => {
             mem.set_f64(
                 dst,
-                operation(
-                    mem.get_f64(src1),
-                    mem.get_f64(src2),
-                    mem.get_f64(src3),
-                ),
+                operation(mem.get_f64(src1), mem.get_f64(src2), mem.get_f64(src3)),
             );
         }
         FloatType::PairedSingle => {
@@ -105,10 +101,7 @@ pub(crate) fn binary_float(
             );
         }
         FloatType::Double => {
-            mem.set_f64(
-                dst,
-                operation(mem.get_f64(src1), mem.get_f64(src2)),
-            );
+            mem.set_f64(dst, operation(mem.get_f64(src1), mem.get_f64(src2)));
         }
         FloatType::PairedSingle => {
             let vals = mem.get_ps(src1);

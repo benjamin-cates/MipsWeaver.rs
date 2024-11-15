@@ -41,9 +41,8 @@ impl Default for Cop0 {
             lladdr: 0,
             error_epc: 0,
             scratch: [0; 7],
-        }
+        };
     }
-
 }
 
 fn overwrite_bits(initial: u32, mask: u32, val: u32) -> u32 {
@@ -70,11 +69,14 @@ impl Cop0 {
             // Processor identification
             (15, 0) => Some(0),
             (15, 1) => Some(self.ebase),
-            (16, 0) => Some(0x8000_0000 | (match cfg.version {
-                crate::config::Version::R1 => 0,
-                crate::config::Version::R6 => 2,
-                _ => 1,
-            } << 10)),
+            (16, 0) => Some(
+                0x8000_0000
+                    | (match cfg.version {
+                        crate::config::Version::R1 => 0,
+                        crate::config::Version::R6 => 2,
+                        _ => 1,
+                    } << 10),
+            ),
             // Config_2, the final bit specifies FPU is implemented
             (16, 1) => Some(1),
             (17, 0) => Some(self.lladdr),
@@ -86,7 +88,7 @@ impl Cop0 {
     /// Sets the writeable bits of register specified by the index and selection field to the passed value. If the register is not implemented, returns None.
     pub fn set_register(&mut self, _cfg: &Config, index: usize, sel: usize, val: u32) {
         match (index, sel) {
-            (4,2) => self.user_local = val,
+            (4, 2) => self.user_local = val,
             (7, 0) => self.rdhwr_idx = overwrite_bits(self.rdhwr_idx, RDHWR_INDEXES, val),
             (8, 0) => {}
             (8, 1) => {}
@@ -113,5 +115,4 @@ impl Cop0 {
             (_, _) => {}
         };
     }
-
 }

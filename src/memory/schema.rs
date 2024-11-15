@@ -1,4 +1,4 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
 use crate::{config::Config, cop0::Cop0, cop1::FloatingPointControl, instruction::Instruction};
 

@@ -13,19 +13,12 @@ pub enum Label {
 impl Label {
     pub(crate) fn get_address(&self, mem: &Memory) -> u32 {
         match self {
-            Label::Name(ref str) => {
-                *mem.labels.get(str).unwrap()
-            }
-            Label::Offset(val) => {
-                (mem.program_counter as i64 + val) as u32
-            }
-            Label::AlignedOffset(val) => {
-                (mem.program_counter & 0xFC000000) | (val & 0x03FFFFFF)
-            }
+            Label::Name(ref str) => *mem.labels.get(str).unwrap(),
+            Label::Offset(val) => (mem.program_counter as i64 + val) as u32,
+            Label::AlignedOffset(val) => (mem.program_counter & 0xFC000000) | (val & 0x03FFFFFF),
         }
     }
 }
-
 
 /// Can store any of:
 /// - A label position somewhere in the program
@@ -64,6 +57,6 @@ pub struct IndexedAddr(pub Register, pub Register);
 
 impl IndexedAddr {
     pub(crate) fn evaluate(&self, mem: &Memory) -> u32 {
-        mem.reg(self.0 .id).wrapping_add(mem.reg(self.1 .id))
+        mem.reg(self.0.id).wrapping_add(mem.reg(self.1.id))
     }
 }

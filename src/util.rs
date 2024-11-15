@@ -14,8 +14,7 @@ pub(crate) fn crc32(value: u32, message: u32, num_bytes: usize, poly: u32) -> u3
     for _ in 0..(num_bytes * 8) {
         if value & 0b1 == 1 {
             value = (value >> 1) ^ poly;
-        }
-        else {
+        } else {
             value = value >> 1;
         }
     }

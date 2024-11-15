@@ -5,7 +5,7 @@ use regex::Regex;
 use crate::{
     config::Config,
     err::{MIPSErrMap, MIPSParseError, ParseErrorType as ParseErr},
-    instruction::{Instruction},
+    instruction::Instruction,
     memory::Memory,
 };
 
@@ -141,10 +141,16 @@ fn parse_word_segment(
             Err(throw(num, ParseErr::InvalidLiteral))?
         };
         if parsed > data_mode.max_int() {
-            Err(throw(num, ParseErr::LitBounds(data_mode.min_int(), data_mode.max_int())))?
+            Err(throw(
+                num,
+                ParseErr::LitBounds(data_mode.min_int(), data_mode.max_int()),
+            ))?
         }
         if parsed < data_mode.min_int() {
-            Err(throw(num, ParseErr::LitBounds(data_mode.min_int(), data_mode.min_int())))?
+            Err(throw(
+                num,
+                ParseErr::LitBounds(data_mode.min_int(), data_mode.min_int()),
+            ))?
         }
         if data_mode == DataMode::Word {
             align_pointer(ptr, 4, &mut mem.labels);
@@ -396,9 +402,13 @@ impl Memory {
                 let parsed = Instruction::parse(line, cfg)
                     .add_line(line_num)
                     .add_pos(offset)?;
-                for (i, inst) in self.translate_pseudo_instruction(parsed, cfg).into_iter().enumerate() {
+                for (i, inst) in self
+                    .translate_pseudo_instruction(parsed, cfg)
+                    .into_iter()
+                    .enumerate()
+                {
                     if inst == Instruction::Nop && i != 0 {
-                        continue
+                        continue;
                     }
                     let serialized = inst.serialize(cfg, *ptr, &mut linker_tasks);
                     self.store_word(*ptr, serialized).unwrap();

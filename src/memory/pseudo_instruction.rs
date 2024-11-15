@@ -19,8 +19,10 @@ impl Memory {
                 Register::new_gpr(0),
                 Immediate((addr & 0xFFFF) as i64),
             ));
-            let lui =
-                Instruction::LoadUpperImmediate((Register::new_gpr(1), Immediate((addr & 0xFFFF0000) as i64)));
+            let lui = Instruction::LoadUpperImmediate((
+                Register::new_gpr(1),
+                Immediate((addr & 0xFFFF0000) as i64),
+            ));
             // If there is a register, add another add operation
             if let Some(reg) = sum_addr.register {
                 // Add register to register 1
@@ -77,17 +79,25 @@ impl Memory {
     }
 }
 
-fn overflow_immediate(inst: Instruction, imm: i64, sign: Sign, bits: usize, new_inst: Instruction) -> [Instruction; 4] {
+fn overflow_immediate(
+    inst: Instruction,
+    imm: i64,
+    sign: Sign,
+    bits: usize,
+    new_inst: Instruction,
+) -> [Instruction; 4] {
     if !fits_bits(imm, bits, sign) {
-        let lui = Instruction::LoadUpperImmediate((Register::new_gpr(1), Immediate(((imm as u32) >> 16) as i64)));
+        let lui = Instruction::LoadUpperImmediate((
+            Register::new_gpr(1),
+            Immediate(((imm as u32) >> 16) as i64),
+        ));
         let ori = Instruction::OrImmediate((
             Register::new_gpr(1),
             Register::new_gpr(1),
             Immediate(((imm as u32) & 0xFFFF) as i64),
         ));
         [lui, ori, new_inst, I::Nop]
-    }
-    else {
+    } else {
         [inst, I::Nop, I::Nop, I::Nop]
     }
 }
@@ -104,7 +114,6 @@ fn append_to_pseudo_list(mut list: [I; 4], inst: I) -> [I; 4] {
     }
     list
 }
-
 
 impl Memory {
     pub fn translate_pseudo_instruction(&self, inst: Instruction, cfg: &Config) -> [I; 4] {
@@ -125,29 +134,46 @@ impl Memory {
                 self.sum_addr_handler(16, &mut sum_addr),
                 I::LoadInt(s, it, (reg, sum_addr)),
             ),
-            I::LoadCop(cop, it, (reg, mut sum_addr)) => {
-                append_to_pseudo_list(
-                    self.sum_addr_handler(if cop == Cop(2) && cfg.version == Version::R6 {11} else {16}, &mut sum_addr),
-                    I::LoadCop(cop, it, (reg, sum_addr)),
-                )
-            }
+            I::LoadCop(cop, it, (reg, mut sum_addr)) => append_to_pseudo_list(
+                self.sum_addr_handler(
+                    if cop == Cop(2) && cfg.version == Version::R6 {
+                        11
+                    } else {
+                        16
+                    },
+                    &mut sum_addr,
+                ),
+                I::LoadCop(cop, it, (reg, sum_addr)),
+            ),
             I::LoadWordLeft((x, mut sum_addr)) => append_to_pseudo_list(
-                self.sum_addr_handler(if cfg.version == Version::R6 {9} else {16}, &mut sum_addr),
+                self.sum_addr_handler(
+                    if cfg.version == Version::R6 { 9 } else { 16 },
+                    &mut sum_addr,
+                ),
                 I::LoadWordLeft((x, sum_addr)),
             ),
             I::LoadWordRight((x, mut sum_addr)) => append_to_pseudo_list(
-                self.sum_addr_handler(if cfg.version == Version::R6 {9} else {16}, &mut sum_addr),
+                self.sum_addr_handler(
+                    if cfg.version == Version::R6 { 9 } else { 16 },
+                    &mut sum_addr,
+                ),
                 I::LoadWordRight((x, sum_addr)),
             ),
             I::LoadLinkedWord((x, mut sum_addr)) => append_to_pseudo_list(
-                self.sum_addr_handler(if cfg.version == Version::R6 {9} else {16}, &mut sum_addr),
+                self.sum_addr_handler(
+                    if cfg.version == Version::R6 { 9 } else { 16 },
+                    &mut sum_addr,
+                ),
                 I::LoadLinkedWord((x, sum_addr)),
             ),
             I::OrImmediate((dst, src1, Imm(imm))) => {
                 overflow_immediate(inst, imm, Sign::Unsigned, 16, I::Or((dst, src1, at)))
             }
             I::Pref((x, mut sum_addr)) => append_to_pseudo_list(
-                self.sum_addr_handler(if cfg.version == Version::R6 {9} else {16}, &mut sum_addr),
+                self.sum_addr_handler(
+                    if cfg.version == Version::R6 { 9 } else { 16 },
+                    &mut sum_addr,
+                ),
                 I::Pref((x, sum_addr)),
             ),
             I::StoreInt(it, (reg, mut sum_addr)) => append_to_pseudo_list(
@@ -155,15 +181,23 @@ impl Memory {
                 I::StoreInt(it, (reg, sum_addr)),
             ),
             I::StoreConditional((x, mut sum_addr)) => append_to_pseudo_list(
-                self.sum_addr_handler(if cfg.version == Version::R6 {9} else {16}, &mut sum_addr),
+                self.sum_addr_handler(
+                    if cfg.version == Version::R6 { 9 } else { 16 },
+                    &mut sum_addr,
+                ),
                 I::LoadLinkedWord((x, sum_addr)),
             ),
-            I::StoreCop(cop, it, (reg, mut sum_addr)) => {
-                append_to_pseudo_list(
-                    self.sum_addr_handler(if cop == Cop(2) && cfg.version == Version::R6 {11} else {16}, &mut sum_addr),
-                    I::StoreCop(cop, it, (reg, sum_addr)),
-                )
-            }
+            I::StoreCop(cop, it, (reg, mut sum_addr)) => append_to_pseudo_list(
+                self.sum_addr_handler(
+                    if cop == Cop(2) && cfg.version == Version::R6 {
+                        11
+                    } else {
+                        16
+                    },
+                    &mut sum_addr,
+                ),
+                I::StoreCop(cop, it, (reg, sum_addr)),
+            ),
             I::SetOnLessThanImmediate(s, (dst, src1, Imm(imm))) => {
                 overflow_immediate(inst, imm, s, 16, I::SetOnLessThan(s, (dst, src1, at)))
             }

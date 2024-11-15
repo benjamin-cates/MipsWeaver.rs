@@ -34,7 +34,8 @@ impl Memory {
             }
             ExecutionAction::Jump(address) => {
                 self.program_counter = address;
-                self.history.add_jump(self.program_counter, address, delay_slot_executed);
+                self.history
+                    .add_jump(self.program_counter, address, delay_slot_executed);
             }
             ExecutionAction::Trap => {
                 return Ok(false);
@@ -45,12 +46,11 @@ impl Memory {
         }
         Ok(true)
     }
-    
+
     /// Execute instructions until a break, wait, pause, or other execution stopping instruction is encountered
     /// In the event of a runtime error, returns [`RuntimeException`].
     pub fn run(&mut self) -> Result<(), RuntimeException> {
-        while self.step()? {
-        }
+        while self.step()? {}
         return Ok(());
     }
 }

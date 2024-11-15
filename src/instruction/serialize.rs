@@ -1,9 +1,9 @@
 use crate::{
-    util,
     config::{Config, Version},
     instruction::{types::Likely, Comparison, Immediate},
     memory::{linker::LinkerTask, FloatType, IntType},
     register::{Processor, Register},
+    util,
 };
 
 use super::{Instruction, Label, Sign, SumAddress};
@@ -106,17 +106,12 @@ fn fill_jump(lt: &mut Vec<LinkerTask>, pc: u32, offset: usize, len: usize, label
 impl Instruction {
     /// Encode the instruction as a 4-byte sequence. Any unknown labels will be added to the list of linker tasks.
     /// If the operation cannot be encoded in a single instruction, encoding may be broken.
-    /// If the instruction could possibly be a pseudo instruction, run it through [`crate::memory::Memory::translate_pseudo_instruction`] first. 
+    /// If the instruction could possibly be a pseudo instruction, run it through [`crate::memory::Memory::translate_pseudo_instruction`] first.
     pub fn serialize(&self, cfg: &Config, pc: u32, linker_tasks: &mut Vec<LinkerTask>) -> u32 {
         serialize(&self, cfg, pc, linker_tasks)
     }
 }
-fn serialize(
-    inst: &Instruction,
-    cfg: &Config,
-    pc: u32,
-    linker_tasks: &mut Vec<LinkerTask>,
-) -> u32 {
+fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<LinkerTask>) -> u32 {
     use Comparison as Cmp;
     use Immediate as Imm;
     use Instruction as I;

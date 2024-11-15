@@ -201,9 +201,7 @@ fn inst_type_helper(inst: &Instruction, config: &Config) -> InstructionType {
         I::JumpLinkExchange(..) => n.max_v(v, R5),
         I::JumpIndexedCompact(..) => n.min_v(v, R6),
         I::LoadInt(_, _, (_, addr)) => n.base_offset(&addr, 16),
-        I::LoadCop(Processor::Cop(2), _, (_, addr))
-            if config.version == Version::R6 =>
-        {
+        I::LoadCop(Processor::Cop(2), _, (_, addr)) if config.version == Version::R6 => {
             n.base_offset(&addr, 11)
         }
         I::LoadCop(_, _, (_, addr)) => n.base_offset(&addr, 16),

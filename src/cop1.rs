@@ -1,4 +1,7 @@
-use crate::{config::{Config, Version}, err::RuntimeException};
+use crate::{
+    config::{Config, Version},
+    err::RuntimeException,
+};
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 /// Manages floating point control and status registers
@@ -16,7 +19,7 @@ impl Default for FloatingPointControl {
     fn default() -> Self {
         Self {
             ufr: 0,
-            fcsr: 0x010C0000
+            fcsr: 0x010C0000,
         }
     }
 }
@@ -51,7 +54,7 @@ impl FloatingPointException {
             Self::Overflow => 2,
             Self::DivideByZero => 3,
             Self::InvalidOperation => 4,
-            Self::UnimplementedOperation => 5
+            Self::UnimplementedOperation => 5,
         }
     }
     fn from_idx(id: i32) -> Option<Self> {
@@ -62,7 +65,7 @@ impl FloatingPointException {
             3 => Some(Self::DivideByZero),
             4 => Some(Self::InvalidOperation),
             5 => Some(Self::UnimplementedOperation),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -79,8 +82,7 @@ impl FloatingPointControl {
         if self.if_enabled(fpe) {
             self.set_cause(fpe);
             Err(fpe)
-        }
-        else {
+        } else {
             self.set_flag(fpe);
             Ok(())
         }
@@ -90,8 +92,7 @@ impl FloatingPointControl {
     pub fn get_condition_code(&self, idx: usize) -> bool {
         if idx == 0 {
             ((self.fcsr >> 23) & 1) == 1
-        }
-        else {
+        } else {
             ((self.fcsr >> (24 + idx)) & 0x1) == 1
         }
     }
@@ -129,30 +130,22 @@ impl FloatingPointControl {
         if id == 0 {
             if cfg.version == Version::R6 || cfg.version == Version::R1 {
                 Some(0x00F30000)
-            }
-            else {
+            } else {
                 Some(0x00F70000)
             }
-        }
-        else if id == 1 && cfg.version == Version::R5 {
+        } else if id == 1 && cfg.version == Version::R5 {
             Some(self.ufr)
-        }
-        else if id == 4 && cfg.version == Version::R5 {
-            Some(if self.ufr == 0 {1} else {0})
-        }
-        else if id == 31 {
+        } else if id == 4 && cfg.version == Version::R5 {
+            Some(if self.ufr == 0 { 1 } else { 0 })
+        } else if id == 31 {
             Some(self.fcsr)
-        }
-        else if id == 25 && cfg.version != Version::R6 {
+        } else if id == 25 && cfg.version != Version::R6 {
             Some(((self.fcsr >> 24) & 0xFE) | ((self.fcsr >> 23) & 0x1))
-        }
-        else if id == 26 {
+        } else if id == 26 {
             Some(self.fcsr & 0x0003F07C)
-        }
-        else if id == 28 {
+        } else if id == 28 {
             Some((self.fcsr & 0x00000F83) | ((self.fcsr >> 22) & 0x00000004))
-        }
-        else {
+        } else {
             None
         }
     }
@@ -161,35 +154,27 @@ impl FloatingPointControl {
     pub fn set_control_register(&mut self, cfg: &Config, id: usize, value: u32) -> Option<()> {
         if id == 0 {
             Some(())
-        }
-        else if id == 1 && cfg.version == Version::R5 {
+        } else if id == 1 && cfg.version == Version::R5 {
             Some(())
-        }
-        else if id == 31 {
+        } else if id == 31 {
             let mask = if cfg.version == Version::R6 {
                 0xFF03_FFFF
-            }
-            else {
+            } else {
                 0xFF43_FFFF
             };
             self.fcsr = (self.fcsr & (!mask)) | (value & mask);
             Some(())
-        }
-        else if id == 25 && cfg.version != Version::R6 {
+        } else if id == 25 && cfg.version != Version::R6 {
             self.fcsr = (self.fcsr & 0x017F_FFFF) | ((value & 0xF7) << 24) | ((value & 1) << 23);
             Some(())
-        }
-        else if id == 26 {
+        } else if id == 26 {
             self.fcsr = (self.fcsr & 0xFFFC_0F83) | (value & 0x0003_F07C);
             Some(())
-        }
-        else if id == 28 {
+        } else if id == 28 {
             self.fcsr = (self.fcsr & 0xFEFF_F07C) | (value & 0x0000_0F83) | ((value & 4) << 22);
             Some(())
-        }
-        else {
+        } else {
             None
         }
     }
-
 }
