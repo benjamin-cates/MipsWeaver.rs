@@ -2,13 +2,12 @@ mod args_schema;
 mod deserialize;
 mod execute;
 mod name;
-pub mod parse;
+mod parse;
 mod parse_args;
 mod print;
 mod pseudo;
-pub mod serialize;
+mod serialize;
 mod types;
-mod undo;
 #[macro_use]
 pub(crate) mod execution_helpers;
 

@@ -103,3 +103,7 @@ pub(crate) fn syscall(mem: &mut Memory) -> Result<(), RuntimeException> {
     }
     Ok(())
 }
+/// Undo execution of a syscall
+pub(crate) fn undo_syscall(mem: &mut Memory) {
+    todo!();
+}

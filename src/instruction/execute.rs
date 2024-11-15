@@ -57,7 +57,7 @@ impl Instruction {
     pub(crate) fn execute(
         &self,
         mem: &mut Memory,
-        execute_delay_slot: impl Fn(&mut Memory) -> Result<(), RuntimeException>,
+        execute_delay_slot: impl FnOnce(&mut Memory) -> Result<(), RuntimeException>,
     ) -> Result<ExecutionAction, RuntimeException> {
         use FloatingPointException as FPE;
         use Instruction as I;
@@ -148,12 +148,12 @@ impl Instruction {
                 }
             }
             I::BranchZeroLink(cmp, likely, (reg, ref label)) => {
+                mem.history.push(mem.reg(31));
                 if compare(cmp, mem.reg(reg.id) as i32, 0) {
                     mem.program_counter += 4;
                     if mem.cfg.do_branch_delay {
                         execute_delay_slot(mem)?;
                     }
-                    mem.history.push(mem.reg(31));
                     mem.set_reg(31, mem.program_counter);
                     return Ok(ExecutionAction::Jump(label.get_address(mem)));
                 }
@@ -177,9 +177,9 @@ impl Instruction {
                 }
             }
             I::BranchCompactZeroLink(cmp, (reg, ref label)) => {
+                mem.history.push(mem.reg(31));
                 if compare(cmp, mem.reg(reg.id) as i32, 0) {
                     mem.program_counter += 4;
-                    mem.history.push(mem.reg(31));
                     mem.set_reg(31, mem.program_counter);
                     return Ok(ExecutionAction::Jump(label.get_address(mem)));
                 }
@@ -249,8 +249,7 @@ impl Instruction {
                     let float: f32 = mem.get_f32(fs.id);
                     float.ceil() as i64
                 };
-                mem.history.push((mem.cop1_reg[fd.id] >> 32) as u32);
-                mem.history.push(mem.cop1_reg[fd.id] as u32);
+                mem.history.push_u64(mem.cop1_reg[fd.id]);
                 if it == IntType::Doubleword {
                     mem.set_f64(fd.id, f64::from_bits(int as u64));
                 } else {
@@ -279,8 +278,7 @@ impl Instruction {
                     (false, FpCategory::Subnormal) => 8,
                     (false, FpCategory::Zero) => 9,
                 };
-                mem.history.push((mem.cop1_reg[fd.id] >> 32) as u32);
-                mem.history.push(mem.cop1_reg[fd.id] as u32);
+                mem.history.push_u64(mem.cop1_reg[fd.id]);
                 mem.set_f32(fd.id, f32::from_bits(1 << class));
             }
             I::CountLeadingOne((rd, rs)) => {
@@ -780,8 +778,8 @@ impl Instruction {
                 mem.set_reg(rt.id, mem.cop0.get_register(&mem.cfg, rd.id, sel as usize).ok_or(RuntimeException::ReservedInstruction)?);
             }
             I::MoveFromCop(Cop(1), (rt, fs, _)) => {
-                mem.history.push_u64(mem.cop1_reg[fs.id]);
-                mem.cop1_reg[fs.id] = mem.reg(rt.id) as u64;
+                mem.history.push(mem.reg(rt.id));
+                mem.set_reg(rt.id, mem.cop1_reg[fs.id] as u32);
             }
             I::MoveFromCop(..) => todo!(),
             I::MoveFromHi(reg) => {
@@ -792,10 +790,17 @@ impl Instruction {
                 mem.history.push(mem.reg(reg.id));
                 mem.set_reg(reg.id, mem.hi);
             }
-            I::MoveFromHiCop(_, (rt, _rd, _)) => {
+            I::MoveFromHiCop(Processor::Cop(0), (rt, _rd, _)) => {
                 mem.history.push(mem.reg(rt.id));
                 // Set to zero since high bits not implemented
                 mem.set_reg(rt.id, 0);
+            }
+            I::MoveFromHiCop(Processor::Cop(1), (rt, fs, _)) => {
+                mem.history.push(mem.reg(rt.id));
+                mem.set_reg(rt.id, (mem.cop1_reg[fs.id] >> 32) as u32);
+            }
+            I::MoveFromHiCop(..) => {
+                unimplemented!();
             }
             I::MoveFloat(_fmt, (fd, fs)) => {
                 mem.history.push_u64(mem.cop1_reg[fd.id]);
@@ -993,6 +998,7 @@ impl Instruction {
                 let address = sum_addr.evaluate(&mem);
                 mem.history.push(mem.load_word(address)?);
                 mem.history.push(mem.reg(rt.id));
+                mem.history.push(mem.cop0.lladdr);
                 if (mem.cop0.lladdr & 1) == 1 {
                     mem.store_word(address, mem.reg(rt.id))?;
                     mem.set_reg(rt.id, 1);
@@ -1005,8 +1011,9 @@ impl Instruction {
             }
             I::StoreConditionalPairedWord((rt, rd, base)) => {
                 let address = mem.reg(base.id);
-                mem.history.push(mem.reg(rt.id));
                 mem.history.push_u64(mem.load_doubleword(address)?);
+                mem.history.push(mem.reg(rt.id));
+                mem.history.push(mem.cop0.lladdr);
                 if (mem.cop0.lladdr & 1) == 1 {
                     mem.store_doubleword(address, (mem.reg(rd.id) as u64) << 32 | (mem.reg(rt.id) as u64))?;
                     mem.set_reg(rt.id, 1);
@@ -1021,7 +1028,7 @@ impl Instruction {
             I::SwDebugBreak(_) => {
                 return Ok(ExecutionAction::Wait);
             }
-            I::StoreCop(Cop(1),it, (ft, ref sum_addr)) => {
+            I::StoreCop(Cop(1), it, (ft, ref sum_addr)) => {
                 let addr = sum_addr.evaluate(mem);
                 mem.history.push_u64(mem.load_int(it, addr)?);
                 mem.store_int(it, addr, mem.cop1_reg[ft.id])?;
@@ -1044,8 +1051,7 @@ impl Instruction {
                 mem.set_reg(rd.id, val);
             }
             I::SelectFloat(fmt, (fd, fs, ft)) => {
-                mem.history.push((mem.cop1_reg[fd.id] >> 32) as u32);
-                mem.history.push(mem.cop1_reg[fd.id] as u32);
+                mem.history.push_u64(mem.cop1_reg[fd.id]);
                 if mem.reg(fd.id) & 1 == 0 {
                     if fmt == FloatType::Single {
                         mem.cop1_reg[fd.id] = mem.cop1_reg[ft.id] as u32 as u64;

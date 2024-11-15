@@ -6,6 +6,7 @@ mod history;
 pub mod linker;
 mod pseudo_instruction;
 pub mod execute;
+pub mod undo;
 pub(crate) mod io;
 
 

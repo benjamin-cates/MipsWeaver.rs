@@ -13,7 +13,9 @@ impl Memory {
             return Ok(false);
         }
         let inst = &self.instructions[idx];
+        let mut delay_slot_executed = false;
         let execute_delay_slot = |mem: &mut Memory| -> Result<(), RuntimeException> {
+            delay_slot_executed = true;
             let idx = ((mem.program_counter - 0x0040_0000) / 4) as usize;
             if idx >= mem.instructions.len() {
                 return Err(RuntimeException::ReservedInstruction);
@@ -32,6 +34,7 @@ impl Memory {
             }
             ExecutionAction::Jump(address) => {
                 self.program_counter = address;
+                self.history.add_jump(self.program_counter, address, delay_slot_executed);
             }
             ExecutionAction::Trap => {
                 return Ok(false);
