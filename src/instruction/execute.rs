@@ -64,7 +64,7 @@ impl Instruction {
         use Processor::Cop;
         match *self {
             I::AbsFloat(ft, (dst, src)) => unary_float(mem, ft, dst.id, src.id, f64::abs),
-            I::Addi(sign, (dst, src1, Immediate(num))) => {
+            I::AddImmediate(sign, (dst, src1, Immediate(num))) => {
                 mem.history.push(mem.reg(dst.id));
                 mem.set_reg(dst.id, checked_add(sign, mem.reg(src1.id), num as u32)?);
             }
@@ -78,7 +78,7 @@ impl Instruction {
             I::AddFloat(ft, (dst, src1, src2)) => {
                 binary_float(mem, ft, dst.id, src1.id, src2.id, f64::add)
             }
-            I::Addiupc((dst, Immediate(imm))) => {
+            I::AddImmediatePC((dst, Immediate(imm))) => {
                 mem.history.push(mem.reg(dst.id));
                 mem.set_reg(dst.id, mem.program_counter + (imm * 4) as u32);
             }
@@ -103,15 +103,15 @@ impl Instruction {
                 mem.history.push(mem.reg(dst.id));
                 mem.set_reg(dst.id, mem.reg(src1.id) & mem.reg(src2.id));
             }
-            I::Andi((dst, src1, Immediate(imm))) => {
+            I::AndImmediate((dst, src1, Immediate(imm))) => {
                 mem.history.push(mem.reg(dst.id));
                 mem.set_reg(dst.id, (mem.reg(src1.id) as u16 & (imm as u16)) as u32);
             }
-            I::Aui((dst, src, Immediate(imm))) => {
+            I::AddUpperImmediate((dst, src, Immediate(imm))) => {
                 mem.history.push(mem.reg(dst.id));
                 mem.set_reg(dst.id, mem.reg(src.id).wrapping_add((imm as u32) << 16));
             }
-            I::AuiPC((dst, Immediate(imm))) => {
+            I::AddUpperImmediatePC((dst, Immediate(imm))) => {
                 mem.history.push(mem.reg(dst.id));
                 mem.set_reg(dst.id, mem.program_counter.wrapping_add((imm as u32) << 16));
             }
@@ -232,7 +232,7 @@ impl Instruction {
             I::Break => {
                 return Err(RuntimeException::Break);
             }
-            I::FpComp(..) => {
+            I::FloatCompare(..) => {
                 todo!();
             }
             I::FpCmpMask(..) => {
@@ -256,7 +256,7 @@ impl Instruction {
                     mem.set_f32(fd.id, f32::from_bits(int as u32));
                 }
             }
-            I::CfCop(..) => {
+            I::CopyFromControlCop(..) => {
                 todo!();
             }
             I::Class(fmt, (fd, fs)) => {
@@ -314,7 +314,7 @@ impl Instruction {
                 let crc = crc32(mem.reg(rt.id), mem.reg(rs.id) & mask, num_bytes, 0x82F63B78);
                 mem.set_reg(rt.id, crc);
             }
-            I::Ctc(..) => {
+            I::CopyToControlCop(..) => {
                 todo!()
             }
             I::CvtToFloat(fmt, it, (fd, fs)) => {
@@ -381,10 +381,10 @@ impl Instruction {
                     },
                 );
             }
-            I::Deret => {
+            I::DebugExceptionReturn => {
                 todo!()
             }
-            I::DI(rt) => {
+            I::DisableInterrupts(rt) => {
                 mem.history.push(mem.reg(rt.id));
                 mem.set_reg(rt.id, mem.cop0.status0);
                 mem.cop0.status0 &= 0xFFFFFFFE;
@@ -456,24 +456,24 @@ impl Instruction {
                     mem.set_f64(fd.id, one / two);
                 }
             }
-            I::Dvp(..) => {
+            I::DisableVirtualProcessor(..) => {
                 todo!()
             }
-            I::Ehb => {
+            I::ExecutionHazardBarrier => {
                 // Do nothing
             }
-            I::EI(rt) => {
+            I::EnableInterrupts(rt) => {
                 mem.history.push(mem.reg(rt.id));
                 mem.set_reg(rt.id, mem.cop0.status0);
                 mem.cop0.status0 |= 1;
             }
-            I::Eret(_) => {
+            I::ExceptionReturn(_) => {
                 todo!()
             }
-            I::Evp(..) => {
+            I::EnableVirtualProcessor(..) => {
                 todo!()
             }
-            I::Ext((rt, rs, Immediate(pos), Immediate(size))) => {
+            I::ExtractBits((rt, rs, Immediate(pos), Immediate(size))) => {
                 mem.history.push(mem.reg(rt.id));
                 let mask = (1u64 << size) - 1;
                 mem.set_reg(rt.id, ((mem.reg(rs.id) >> pos) as u64 & mask) as u32);
@@ -498,7 +498,7 @@ impl Instruction {
             I::Ginvt(..) => {
                 // Do nothing
             }
-            I::Ins((rt, rs, Immediate(pos), Immediate(size))) => {
+            I::InsertBits((rt, rs, Immediate(pos), Immediate(size))) => {
                 let to_insert = mem.reg(rs.id) & (((1u64 << size) - 1) as u32);
                 let insertion_mask = 0xFFFFFFFFu32 ^ ((((1u64 << size) - 1) as u32) << pos);
                 mem.history.push(mem.reg(rt.id));
@@ -531,7 +531,7 @@ impl Instruction {
                 }
                 return Ok(ExecutionAction::Jump(jump_point));
             }
-            I::Jalx(..) => {
+            I::JumpLinkExchange(..) => {
                 unimplemented!();
             }
             I::JumpIndexedCompact(false, (rd, Immediate(offset))) => {
@@ -611,7 +611,7 @@ impl Instruction {
                 mem.history.push(mem.reg(rd.id));
                 mem.set_reg(rd.id, addr as u32);
             }
-            I::Lui((rt, Immediate(imm))) => {
+            I::LoadUpperImmediate((rt, Immediate(imm))) => {
                 mem.history.push(mem.reg(rt.id));
                 mem.set_reg(rt.id, (imm as u32 & 0xFFFF) << 16);
             }
@@ -892,7 +892,7 @@ impl Instruction {
                 mem.hi = (val >> 32) as u32;
                 mem.lo = (val & 0xFFFFFFFF) as u32;
             }
-            I::Nal => {
+            I::NopLink => {
                 mem.history.push(mem.reg(31));
                 mem.set_reg(31, mem.program_counter + 8);
             }
@@ -910,7 +910,7 @@ impl Instruction {
                 mem.history.push(mem.reg(rd.id));
                 mem.set_reg(rd.id, mem.reg(rs.id) | mem.reg(rt.id));
             }
-            I::Ori((rt, rs, Immediate(imm))) => {
+            I::OrImmediate((rt, rs, Immediate(imm))) => {
                 mem.history.push(mem.reg(rt.id));
                 mem.set_reg(rt.id, mem.reg(rs.id) | (imm as u16 as u32));
             }
@@ -985,7 +985,7 @@ impl Instruction {
                     mem.cop1_reg[fd.id] = float as i32 as u32 as u64;
                 }
             }
-            I::Rsqrt(fmt, (fd, fs)) => {
+            I::ReciprocalSqrt(fmt, (fd, fs)) => {
                 unary_float(mem, fmt, fd.id, fs.id, |a| 1.0 / a.sqrt());
             }
             I::StoreInt(it, (rt, ref sum_addr)) => {
@@ -1194,7 +1194,7 @@ impl Instruction {
             I::Sync(_) => {
                 // Do nothing
             }
-            I::Synci(_) => {
+            I::SyncInstructionWrites(_) => {
                 // Do nothing
             }
             I::Syscall(_) => {
@@ -1258,7 +1258,7 @@ impl Instruction {
                 mem.history.push(mem.reg(rd.id));
                 mem.set_reg(rd.id, mem.reg(rs.id) ^ mem.reg(rt.id));
             }
-            I::Xori((rt, rs, Immediate(imm))) => {
+            I::XorImmediate((rt, rs, Immediate(imm))) => {
                 mem.history.push(mem.reg(rt.id));
                 mem.set_reg(rt.id, mem.reg(rs.id) ^ (imm as u16 as u32));
             }

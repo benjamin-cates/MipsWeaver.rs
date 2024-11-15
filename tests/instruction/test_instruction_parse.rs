@@ -344,10 +344,10 @@ fn test_parse() {
     three_float(|a| I::AddFloat(Single, a), "add.s");
     three_float(|a| I::AddFloat(Double, a), "add.d");
     three_float(|a| I::AddFloat(PairedSingle, a), "add.ps");
-    reg_imm3(|a| I::Addi(S, a), "addi", (-0x80000000, 0x7FFFFFFF));
-    reg_imm3(|a| I::Addi(U, a), "addiu", (0, 0xFFFFFFFF));
+    reg_imm3(|a| I::AddImmediate(S, a), "addi", (-0x80000000, 0x7FFFFFFF));
+    reg_imm3(|a| I::AddImmediate(U, a), "addiu", (0, 0xFFFFFFFF));
     three_gpr(|a| I::Add(U, a), "addu");
-    reg_imm2(|a| I::Addiupc(a), "addiupc", (-0x40000, 0x3FFFF));
+    reg_imm2(|a| I::AddImmediatePC(a), "addiupc", (-0x40000, 0x3FFFF));
     test_four_arg::<RR, RR, RR, IR>(&cfg, |a| I::Align(a), "align", (), (), (), (0, 3));
     test_four_arg::<FR, FR, FR, RR>(
         &cfg,
@@ -359,10 +359,10 @@ fn test_parse() {
         (),
     );
     reg_imm2(|a| I::AlignedAuiPC(a), "aluipc", (0, 0xFFFF));
-    reg_imm3(|a| I::Andi(a), "andi", (0, 0xFFFFFFFF));
+    reg_imm3(|a| I::AndImmediate(a), "andi", (0, 0xFFFFFFFF));
     three_gpr(|a| I::And(a), "and");
-    reg_imm3(|a| I::Aui(a), "aui", (-0x8000, 0x7FFF));
-    reg_imm2(|a| I::AuiPC(a), "auipc", (-0x8000, 0x7FFF));
+    reg_imm3(|a| I::AddUpperImmediate(a), "aui", (-0x8000, 0x7FFF));
+    reg_imm2(|a| I::AddUpperImmediatePC(a), "auipc", (-0x8000, 0x7FFF));
     one_label(|a| I::Branch(Cmp::Eq, NL, (reg_zero, reg_zero, a)), "b", 16);
     one_label(|a| I::BranchZeroLink(Cmp::Eq, NL, (reg_zero, a)), "bal", 16);
     one_label(|a| I::BranchCompactLink(a), "balc", 26);
@@ -461,8 +461,8 @@ fn test_parse() {
     two_float(|a| I::Ceil(Word, Single, a), "ceil.w.s");
     two_float(|a| I::Ceil(Doubleword, Double, a), "ceil.l.d");
     two_float(|a| I::Ceil(Word, Double, a), "ceil.w.d");
-    test_double_arg::<RR, FR>(&cfg, |a| I::CfCop(Cop(1), a), "cfc1", (), ());
-    test_double_arg::<URR, FR>(&cfg, |a| I::CfCop(Cop(1), a), "cfc1", (), ());
+    test_double_arg::<RR, FR>(&cfg, |a| I::CopyFromControlCop(Cop(1), a), "cfc1", (), ());
+    test_double_arg::<URR, FR>(&cfg, |a| I::CopyFromControlCop(Cop(1), a), "cfc1", (), ());
     two_float(|a| I::Class(Double, a), "class.d");
     two_float(|a| I::Class(Single, a), "class.s");
     two_gpr(|a| I::CountLeadingOne(a), "clo");
@@ -473,8 +473,8 @@ fn test_parse() {
     test_crc::<RR, RR>(&cfgr6, |a| I::Crc32C(Byte, a), "crc32cb", (), ());
     test_crc::<RR, RR>(&cfgr6, |a| I::Crc32C(Halfword, a), "crc32ch", (), ());
     test_crc::<RR, RR>(&cfgr6, |a| I::Crc32C(Word, a), "crc32cw", (), ());
-    test_double_arg::<RR, FR>(&cfg, |a| I::Ctc(Cop(1), a), "ctc1", (), ());
-    test_double_arg::<URR, FR>(&cfg, |a| I::Ctc(Cop(1), a), "ctc1", (), ());
+    test_double_arg::<RR, FR>(&cfg, |a| I::CopyToControlCop(Cop(1), a), "ctc1", (), ());
+    test_double_arg::<URR, FR>(&cfg, |a| I::CopyToControlCop(Cop(1), a), "ctc1", (), ());
     two_float(|a| I::CvtFloats(Single, Double, a), "cvt.s.d");
     two_float(|a| I::CvtFloats(Double, Single, a), "cvt.d.s");
     two_float(|a| I::CvtToInt(Word, Single, a), "cvt.w.s");
@@ -488,8 +488,8 @@ fn test_parse() {
     three_float(|a| I::CvtToPS(a), "cvt.ps.s");
     two_float(|a| I::CvtFromPS(false, a), "cvt.s.pl");
     two_float(|a| I::CvtFromPS(true, a), "cvt.s.pu");
-    no_args(I::Deret, "deret");
-    one_gpr(|a| I::DI(a), "di");
+    no_args(I::DebugExceptionReturn, "deret");
+    one_gpr(|a| I::DisableInterrupts(a), "di");
     test_triple_arg::<RR, RR, RR>(&cfgr6, |a| I::DivR6(S, a), "div", (), (), ());
     test_triple_arg::<RR, RR, RR>(&cfgr6, |a| I::ModR6(S, a), "mod", (), (), ());
     test_triple_arg::<RR, RR, RR>(&cfgr6, |a| I::DivR6(U, a), "divu", (), (), ());
@@ -498,20 +498,20 @@ fn test_parse() {
     two_gpr(|a| I::DivOld(U, a), "divu");
     three_float(|a| I::DivFloat(Single, a), "div.s");
     three_float(|a| I::DivFloat(Double, a), "div.d");
-    one_gpr(|a| I::Dvp(a), "dvp");
-    no_args(I::Ehb, "ehb");
-    one_gpr(|a| I::EI(a), "ei");
-    no_args(I::Eret(true), "eret");
-    no_args(I::Eret(false), "eretnc");
-    one_gpr(|a| I::Evp(a), "evp");
-    test_four_arg::<RR, RR, IR, IR>(&cfg, |a| I::Ext(a), "ext", (), (), (0, 31), (1, 32));
+    one_gpr(|a| I::DisableVirtualProcessor(a), "dvp");
+    no_args(I::ExecutionHazardBarrier, "ehb");
+    one_gpr(|a| I::EnableInterrupts(a), "ei");
+    no_args(I::ExceptionReturn(true), "eret");
+    no_args(I::ExceptionReturn(false), "eretnc");
+    one_gpr(|a| I::EnableVirtualProcessor(a), "evp");
+    test_four_arg::<RR, RR, IR, IR>(&cfg, |a| I::ExtractBits(a), "ext", (), (), (0, 31), (1, 32));
     two_float(|a| I::Floor(Doubleword, Single, a), "floor.l.s");
     two_float(|a| I::Floor(Word, Single, a), "floor.w.s");
     two_float(|a| I::Floor(Doubleword, Double, a), "floor.l.d");
     two_float(|a| I::Floor(Word, Double, a), "floor.w.d");
     one_gpr(|a| I::Ginvi(a), "ginvi");
     test_double_arg::<RR, IR>(&cfg, |a| I::Ginvt(a), "ginvt", (), (0, 3));
-    test_four_arg::<RR, RR, IR, IR>(&cfg, |a| I::Ins(a), "ins", (), (), (0, 16), (0, 16));
+    test_four_arg::<RR, RR, IR, IR>(&cfg, |a| I::InsertBits(a), "ins", (), (), (0, 16), (0, 16));
     test_single_arg::<LabelRand>(
         &Config::default(),
         |a| I::Jump(a),
@@ -534,7 +534,7 @@ fn test_parse() {
     two_gpr(|a| I::JumpLinkRegister(true, a), "jalr.hb");
     test_single_arg::<LabelRand>(
         &Config::default(),
-        |a| I::Jalx(a),
+        |a| I::JumpLinkExchange(a),
         "jalx",
         (0, (1 << 26) - 1));
     reg_imm2(
@@ -568,7 +568,7 @@ fn test_parse() {
     test_triple_llwp::<RR, RR, RR>(&cfg, |a| I::LoadLinkedWordPaired(a), "llwp", (), (), ());
     reg_sumaddr_r6(|a| I::LoadLinkedWord(a), "ll", 9);
     test_four_arg::<RR, RR, RR, IR>(&cfg, |a| I::LoadScaledAddress(a), "lsa", (), (), (), (0, 3));
-    reg_imm2(|a| I::Lui(a), "lui", (0, 0xFFFF));
+    reg_imm2(|a| I::LoadUpperImmediate(a), "lui", (0, 0xFFFF));
     test_double_arg::<FR, IAR>(
         &cfg,
         |a| I::LoadIndexedUnalignedCop1(Doubleword, a),
@@ -872,14 +872,14 @@ fn test_parse() {
     three_float(|a| I::MulFloat(PairedSingle, a), "mul.ps");
     two_gpr(|a| I::Mult(S, a), "mult");
     two_gpr(|a| I::Mult(U, a), "multu");
-    no_args(I::Nal, "nal");
+    no_args(I::NopLink, "nal");
     two_float(|a| I::NegFloat(Single, a), "neg.s");
     two_float(|a| I::NegFloat(Double, a), "neg.d");
     two_float(|a| I::NegFloat(PairedSingle, a), "neg.ps");
     no_args(I::Nop, "nop");
     three_gpr(|a| I::Nor(a), "nor");
     three_gpr(|a| I::Or(a), "or");
-    reg_imm3(|a| I::Ori(a), "ori", (0, 0xFFFFFFFF));
+    reg_imm3(|a| I::OrImmediate(a), "ori", (0, 0xFFFFFFFF));
     no_args(I::Pause, "pause");
     three_float(|a| I::PairedPS(false, false, a), "pll.ps");
     three_float(|a| I::PairedPS(true, false, a), "pul.ps");
@@ -900,8 +900,8 @@ fn test_parse() {
     two_float(|a| I::Round(Doubleword, Double, a), "round.l.d");
     two_float(|a| I::Round(Word, Single, a), "round.w.s");
     two_float(|a| I::Round(Word, Double, a), "round.w.d");
-    two_float(|a| I::Rsqrt(Single, a), "rsqrt.s");
-    two_float(|a| I::Rsqrt(Double, a), "rsqrt.d");
+    two_float(|a| I::ReciprocalSqrt(Single, a), "rsqrt.s");
+    two_float(|a| I::ReciprocalSqrt(Double, a), "rsqrt.d");
     reg_sumaddr(|a| I::StoreInt(Byte, a), "sb", 16);
     reg_sumaddr(|a| I::StoreInt(Halfword, a), "sh", 16);
     reg_sumaddr(|a| I::StoreInt(Word, a), "sw", 16);
@@ -983,7 +983,7 @@ fn test_parse() {
     reg_sumaddr(|a| I::LoadLinkedWord(a), "ll", 16);
     reg_sumaddr_r6(|a| I::LoadLinkedWord(a), "ll", 9);
     test_four_arg::<RR, RR, RR, IR>(&cfg, |a| I::LoadScaledAddress(a), "lsa", (), (), (), (0, 3));
-    reg_imm2(|a| I::Lui(a), "lui", (0, 0xFFFF));
+    reg_imm2(|a| I::LoadUpperImmediate(a), "lui", (0, 0xFFFF));
     reg_sumaddr(|a| I::StoreWordLeft(a), "swl", 16);
     reg_sumaddr(|a| I::StoreWordRight(a), "swr", 16);
     reg_imm2(|a| I::LoadWordPCRelative(a), "lwpc", (-0x40000, 0x3FFFF));
@@ -994,7 +994,7 @@ fn test_parse() {
     three_float(|a| I::SubtractFloat(PairedSingle, a), "sub.ps");
     no_args(I::Sync(Imm(0)), "sync");
     test_single_arg::<IR>(&cfg, |a| I::Sync(a), "sync", (0, 31));
-    test_single_arg::<SAR>(&cfg, |a| I::Synci(a), "synci", (-0x8000, 0x7FFF));
+    test_single_arg::<SAR>(&cfg, |a| I::SyncInstructionWrites(a), "synci", (-0x8000, 0x7FFF));
     no_args(I::Syscall(Imm(0)), "syscall");
     two_gpr(|a| I::Trap(S, Cmp::Eq, a), "teq");
     reg_imm2(
@@ -1046,5 +1046,5 @@ fn test_parse() {
     two_gpr(|a| I::WritePGPR(a), "wrpgpr");
     two_gpr(|a| I::WordSwapHalfwords(a), "wsbh");
     three_gpr(|a| I::Xor(a), "xor");
-    reg_imm3(|a| I::Xori(a), "xori", (0, 0xFFFFFFFF));
+    reg_imm3(|a| I::XorImmediate(a), "xori", (0, 0xFFFFFFFF));
 }

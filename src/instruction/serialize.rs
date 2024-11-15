@@ -138,7 +138,7 @@ fn serialize(
         I::AddFloat(ft, (dst, src1, src2)) => {
             build!(cop1, ft.enc5(), src2.enc(), src1.enc(), dst.enc(), z6)
         }
-        I::Addi(s, (dst, src1, Imm(imm))) => {
+        I::AddImmediate(s, (dst, src1, Imm(imm))) => {
             build!(
                 (if s == S { 8 } else { 9 }, 6),
                 src1.enc(),
@@ -146,7 +146,7 @@ fn serialize(
                 (imm as u32 & 0xFFFF, 16)
             )
         }
-        I::Addiupc((reg, Imm(imm))) => {
+        I::AddImmediatePC((reg, Imm(imm))) => {
             build!((0b111011, 6), reg.enc(), (0, 2), (imm as u32 & 0x7FFFF, 19))
         }
         I::Align((dst, reg1, reg2, Imm(imm))) => {
@@ -181,10 +181,10 @@ fn serialize(
         I::And((dst, reg1, reg2)) => {
             build!(z6, reg1.enc(), reg2.enc(), dst.enc(), (0b100100, 11))
         }
-        I::Andi((dst, reg1, Imm(imm))) => {
+        I::AndImmediate((dst, reg1, Imm(imm))) => {
             build!((0b1100, 6), reg1.enc(), dst.enc(), (imm as u32, 16))
         }
-        I::Aui((dst, reg, Imm(imm))) => {
+        I::AddUpperImmediate((dst, reg, Imm(imm))) => {
             build!(
                 (0b001111, 6),
                 reg.enc(),
@@ -192,7 +192,7 @@ fn serialize(
                 (imm as u32 & 0xFFFF, 16)
             )
         }
-        I::AuiPC((dst, Imm(imm))) => {
+        I::AddUpperImmediatePC((dst, Imm(imm))) => {
             build!(
                 (0b111011, 6),
                 dst.enc(),
@@ -376,7 +376,7 @@ fn serialize(
         I::Break => {
             build!((0, 26), (0b001101, 6))
         }
-        I::FpComp(ref str, fmt, (imm, fs, ft)) => {
+        I::FloatCompare(ref str, fmt, (imm, fs, ft)) => {
             todo!()
             //let cc: u32 = todo!();
             //let cond: u32 = todo!();
@@ -426,7 +426,7 @@ fn serialize(
                 )
             )
         }
-        I::CfCop(cop, (rt, fs)) => {
+        I::CopyFromControlCop(cop, (rt, fs)) => {
             if cop == Processor::Cop(1) {
                 build!((0b010001, 6), (0b00010, 5), rt.enc(), fs.enc(), (0, 11))
             } else {
@@ -511,7 +511,7 @@ fn serialize(
                 (0b001111, 6)
             )
         }
-        I::Ctc(cop, (rt, fs)) => {
+        I::CopyToControlCop(cop, (rt, fs)) => {
             if cop == Processor::Cop(1) {
                 build!((0b010001, 6), (0b00110, 5), rt.enc(), fs.enc(), (0, 11))
             } else {
@@ -589,10 +589,10 @@ fn serialize(
                 (0b100110, 6)
             )
         }
-        I::Deret => {
+        I::DebugExceptionReturn => {
             build!((0b010000, 6), (1, 1), (0, 19), (0b011111, 6))
         }
-        I::DI(reg) => {
+        I::DisableInterrupts(reg) => {
             build!(
                 (0b010000, 6),
                 (0b01011, 5),
@@ -640,7 +640,7 @@ fn serialize(
                 (0b000011, 6)
             )
         }
-        I::Dvp(reg) => {
+        I::DisableVirtualProcessor(reg) => {
             build!(
                 (0b010000, 6),
                 (0b01011, 5),
@@ -650,10 +650,10 @@ fn serialize(
                 (0b00100, 5)
             )
         }
-        I::Ehb => {
+        I::ExecutionHazardBarrier => {
             build!((0, 21), (0b00011, 5), (0, 6))
         }
-        I::EI(reg) => {
+        I::EnableInterrupts(reg) => {
             build!(
                 (0b010000, 6),
                 (0b01011, 5),
@@ -663,14 +663,14 @@ fn serialize(
                 (0, 5)
             )
         }
-        I::Eret(clear) => {
+        I::ExceptionReturn(clear) => {
             if clear {
                 build!((0b010000, 6), (1, 1), (0, 19), (0b011000, 6))
             } else {
                 build!((0b010000, 6), (1, 1), (1, 19), (0b011000, 6))
             }
         }
-        I::Evp(reg) => {
+        I::EnableVirtualProcessor(reg) => {
             build!(
                 (0b010000, 6),
                 (0b01011, 5),
@@ -679,7 +679,7 @@ fn serialize(
                 (0b000100, 6)
             )
         }
-        I::Ext((rt, rs, pos, size)) => {
+        I::ExtractBits((rt, rs, pos, size)) => {
             build!(
                 (0b011111, 6),
                 rs.enc(),
@@ -716,7 +716,7 @@ fn serialize(
                 (0b111101, 6)
             )
         }
-        I::Ins((rt, rs, pos, size)) => {
+        I::InsertBits((rt, rs, pos, size)) => {
             build!(
                 (0b011111, 6),
                 rs.enc(),
@@ -744,7 +744,7 @@ fn serialize(
                 (0b001001, 6)
             )
         }
-        I::Jalx(ref label) => {
+        I::JumpLinkExchange(ref label) => {
             let offset = fill_jump(linker_tasks, pc, 6, 26, label);
             build!((0b011101, 6), (offset, 26))
         }
@@ -784,7 +784,7 @@ fn serialize(
             let inst = build!((id, 6), (0, 5), reg.enc(), (0, 16));
             return sum_addr_handler(inst, 6, 16, 16, sum_addr);
         }
-        I::Lui((reg, imm)) => {
+        I::LoadUpperImmediate((reg, imm)) => {
             build!(
                 (0b001111, 6),
                 (0, 5),
@@ -1106,7 +1106,7 @@ fn serialize(
                 (if sign == S { 0b011000 } else { 0b011001 }, 6)
             )
         }
-        I::Nal => {
+        I::NopLink => {
             build!((0b000001, 6), (0, 5), (0b10000, 5), (0, 16))
         }
         I::NegFloat(fmt, (fd, fs)) => {
@@ -1121,7 +1121,7 @@ fn serialize(
         I::Or((rd, rs, rt)) => {
             build!((0, 6), rs.enc(), rt.enc(), rd.enc(), (0, 5), (0b100101, 6))
         }
-        I::Ori((rt, rs, Imm(imm))) => {
+        I::OrImmediate((rt, rs, Imm(imm))) => {
             build!((0b001101, 6), rs.enc(), rt.enc(), (imm as u32, 16))
         }
         I::Pause => {
@@ -1202,7 +1202,7 @@ fn serialize(
             };
             build!(cop1, fmt.enc5(), (0, 5), fs.enc(), fd.enc(), (id, 6))
         }
-        I::Rsqrt(fmt, (fd, fs)) => {
+        I::ReciprocalSqrt(fmt, (fd, fs)) => {
             build!(cop1, fmt.enc5(), (0, 5), fs.enc(), fd.enc(), (0b010110, 6))
         }
         I::StoreInt(it, (rt, ref sum_addr)) => {
@@ -1403,7 +1403,7 @@ fn serialize(
         I::Sync(Imm(stype)) => {
             build!((0, 6), (0, 15), (stype as u32, 5), (0b001111, 6))
         }
-        I::Synci(ref sum_addr) => {
+        I::SyncInstructionWrites(ref sum_addr) => {
             let inst = build!((0b000001, 6), (0, 5), (0b11111, 5), (0, 16));
             sum_addr_handler(inst, 6, 16, 16, sum_addr)
         }
@@ -1490,7 +1490,7 @@ fn serialize(
         I::Xor((rd, rs, rt)) => {
             build!((0, 6), rs.enc(), rt.enc(), rd.enc(), (0, 5), (0b100110, 6))
         }
-        I::Xori((rt, rs, Imm(imm))) => {
+        I::XorImmediate((rt, rs, Imm(imm))) => {
             build!((0b001110, 6), rs.enc(), rt.enc(), (imm as u32, 16))
         }
     }

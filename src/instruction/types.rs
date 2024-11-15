@@ -198,11 +198,11 @@ pub enum Instruction {
 
     /// For the instructions `addi` and `addiu`.
     /// Operation is `gpr[dst] = gpr[src] + imm`.
-    Addi(Sign, (Register, Register, Immediate)),
+    AddImmediate(Sign, (Register, Register, Immediate)),
 
     /// For the instruction `addiupc`.
     /// Operation is `gpr[dst] = pc + sign_extend(imm << 2)`
-    Addiupc((Register, Immediate)),
+    AddImmediatePC((Register, Immediate)),
 
     /// For the instruction `align`.
     /// Operation is `gpr[dst] = (gpr[src1] << 8*imm) | (gpr[src2] >> (32-8*imm))`
@@ -219,16 +219,16 @@ pub enum Instruction {
 
     /// For instruction `andi`
     /// Operation is `gpr[dst] = gpr[src] & zero_extend(imm)`
-    Andi((Register, Register, Immediate)),
+    AndImmediate((Register, Register, Immediate)),
 
     /// For instruction `aui`
     /// Immediate must be a 16 bit unsigned integer.
     /// Operation is `gpr[dst] = gpr[src] + (imm << 16)`
-    Aui((Register, Register, Immediate)),
+    AddUpperImmediate((Register, Register, Immediate)),
     
     /// For instruction `auipc`.
     /// Operation is `gpr[dst] = pc + (imm << 16)`.
-    AuiPC((Register, Immediate)),
+    AddUpperImmediatePC((Register, Immediate)),
 
     /// For instruction `aluipc`.
     /// Operation is `gpr[dst] = (pc & 0xFFFF0000) | (imm << 16)`.
@@ -287,7 +287,7 @@ pub enum Instruction {
     /// Signals a breakpoint exception.
     Break,
     /// NOT IMPLEMENTED
-    FpComp(&'static str, FloatType, (Immediate, Register, Register)),
+    FloatCompare(&'static str, FloatType, (Immediate, Register, Register)),
 
     /// For instruction `cache`.
     /// Perform the operation id in the immediate on the calculated address.
@@ -301,7 +301,7 @@ pub enum Instruction {
     
     /// For instructions `cfc1` and `cfc2`.
     /// Moves the control word from the coprocessor into a gpr.
-    CfCop(Processor, (Register, Register)),
+    CopyFromControlCop(Processor, (Register, Register)),
     
     /// For instructions `class.s` and `class.d`.
     /// Classifies the value in the floating point register and stores the classification id in the floating point destination.
@@ -344,7 +344,7 @@ pub enum Instruction {
 
     /// For instructions `ctc1` and `ctc2`. 
     /// Moves a gpr into the control word of a coprocessor.
-    Ctc(Processor, (Register, Register)),
+    CopyToControlCop(Processor, (Register, Register)),
 
     /// For instructions `cvt.s.w`, `cvt.s.l`, `cvt.d.w`, `cvt.d.l`.
     CvtToFloat(FloatType, IntType, (Register, Register)),
@@ -366,11 +366,11 @@ pub enum Instruction {
 
     /// For instruction `deret`.
     /// Debug exception return, NOT IMPLEMENTED!
-    Deret,
+    DebugExceptionReturn,
 
     /// For instruction `di`.
     /// Sets the allow interrupts bit of the status register to false and saves the status register in the gpr.
-    DI(Register),
+    DisableInterrupts(Register),
 
     /// For instructions `div` and `divu`.
     /// Divides the registers and stores the result in hi and lo.
@@ -391,26 +391,26 @@ pub enum Instruction {
 
     /// For instruction `dvp`.
     /// NOT IMPLEMENTED!
-    Dvp(Register),
+    DisableVirtualProcessor(Register),
 
     /// For instruction `ehb`.
     /// Acts as an execution hazard barrier.
     /// (Does nothing because there is no cache).
-    Ehb,
+    ExecutionHazardBarrier,
 
     /// For instruction `ei`.
     /// Sets the allow interrupts bit of the status register to true and saves the status register in the gpr.
-    EI(Register),
+    EnableInterrupts(Register),
 
     /// For instructions `eret` and `eretnc`.
     /// Performs an exception return.
     /// The bool is true if it clears hazards.
-    Eret(bool),
+    ExceptionReturn(bool),
 
     /// For instruction `evp`.
     /// NOT IMPLEMENTED!
-    Evp(Register),
-    Ext((Register, Register, Immediate, Immediate)),
+    EnableVirtualProcessor(Register),
+    ExtractBits((Register, Register, Immediate, Immediate)),
 
     /// For instructions `floor.w.s`, `floor.w.d`, `floor.l.s`, and `floor.l.d`.
     /// Operation is `fpr[dst] = fpr[src].floor()`.
@@ -427,7 +427,7 @@ pub enum Instruction {
 
     /// For instruction `ins`.
     /// Inserts bits (see MIPS documentation).
-    Ins((Register, Register, Immediate, Immediate)),
+    InsertBits((Register, Register, Immediate, Immediate)),
 
     /// For instruction `j`.
     /// Jumps to label
@@ -444,7 +444,7 @@ pub enum Instruction {
 
     /// For instruction `jalx`.
     /// Not implemented!
-    Jalx(Label),
+    JumpLinkExchange(Label),
 
     /// For instructions `jic` and `jialc`.
     /// If the bool is true, links $ra (reg 31) to the next instruction address before jumping.
@@ -498,7 +498,7 @@ pub enum Instruction {
 
     /// For instruction `lui`.
     /// Loads the immediate into the upper bits of the register and sets the rest to zero.
-    Lui((Register, Immediate)),
+    LoadUpperImmediate((Register, Immediate)),
 
     /// For instructions `madd` and `maddu`.
     /// Performs the multiply add and saves value to hi and lo
@@ -608,7 +608,7 @@ pub enum Instruction {
     
     /// For instruction `nal`.
     /// Stores the address of the next instruction in $ra (reg 31) and continues.
-    Nal,
+    NopLink,
     
     /// For instructions `neg.s`, `neg.d`, and `neg.ps`.
     /// Negates the floating point value.
@@ -628,7 +628,7 @@ pub enum Instruction {
 
     /// For instruction `ori`.
     /// Operation is `gpr[dst] = gpr[src] | imm`.
-    Ori((Register, Register, Immediate)),
+    OrImmediate((Register, Register, Immediate)),
 
     /// For instruction `pause`.
     Pause,
@@ -677,7 +677,7 @@ pub enum Instruction {
 
     /// For instructions `rsqrt.s` and `rsqrt.d`.
     /// Takes the reciprocal square root of floating points.
-    Rsqrt(FloatType, (Register, Register)),
+    ReciprocalSqrt(FloatType, (Register, Register)),
 
     /// For instructions `sb`, `sh`, and `sw`.
     // Stores int at the specified address.
@@ -791,7 +791,7 @@ pub enum Instruction {
 
     /// For instruction `synci`.
     /// Does nothing.
-    Synci(SumAddress),
+    SyncInstructionWrites(SumAddress),
 
     /// For syscall instruction.
     /// Syscalls are compatible with SPIM.
@@ -852,5 +852,5 @@ pub enum Instruction {
 
     /// For instruction `xori`.
     /// Operation is `gpr[dst] = gpr[src1] ^ immediate`.
-    Xori((Register, Register, Immediate)),
+    XorImmediate((Register, Register, Immediate)),
 }

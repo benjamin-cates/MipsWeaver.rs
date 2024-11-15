@@ -32,8 +32,8 @@ impl Instruction {
         match get_bits(val, 32, 6) {
             0b010001 => deser_cop1(cfg, val),
             0b000000 => deser_special(cfg, val),
-            0b001000 => Some(I::Addi(S, (get_gpr(val, 11), get_gpr(val, 6), Immediate(get_bits(val, 16, 16) as i16 as i64)))),
-            0b001001 => Some(I::Addi(U, (get_gpr(val, 11), get_gpr(val, 6), Immediate(get_bits(val, 16, 16) as i16 as i64)))),
+            0b001000 => Some(I::AddImmediate(S, (get_gpr(val, 11), get_gpr(val, 6), Immediate(get_bits(val, 16, 16) as i16 as i64)))),
+            0b001001 => Some(I::AddImmediate(U, (get_gpr(val, 11), get_gpr(val, 6), Immediate(get_bits(val, 16, 16) as i16 as i64)))),
             _ => todo!()
         }
     }

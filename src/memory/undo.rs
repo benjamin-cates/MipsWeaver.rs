@@ -1,4 +1,8 @@
-use crate::{instruction::{Immediate, Instruction}, register::Processor, syscall::undo_syscall};
+use crate::{
+    instruction::{Immediate, Instruction},
+    register::Processor,
+    syscall::undo_syscall,
+};
 
 use super::Memory;
 
@@ -23,24 +27,25 @@ impl Memory {
         use Instruction as I;
         match inst {
             // Undo GPR overwrites
-            I::Addi(_, (dst, ..))
+            I::AddImmediate(_, (dst, ..))
             | I::Add(_, (dst, ..))
-            | I::Addiupc((dst, _))
+            | I::AddImmediatePC((dst, _))
             | I::Align((dst, ..))
             | I::And((dst, ..))
-            | I::Andi((dst, ..))
-            | I::Aui((dst, ..))
-            | I::AuiPC((dst, ..))
+            | I::AndImmediate((dst, ..))
+            | I::AddUpperImmediate((dst, ..))
+            | I::AddUpperImmediatePC((dst, ..))
             | I::AlignedAuiPC((dst, _))
             | I::Bitswap((dst, _))
-            | I::CfCop(_, (dst, _))
+            | I::CopyFromControlCop(_, (dst, _))
             | I::CountLeadingOne((dst, _))
             | I::CountLeadingZero((dst, _))
             | I::Crc32(_, (dst, _))
             | I::Crc32C(_, (dst, _))
             | I::DivR6(_, (dst, ..))
             | I::ModR6(_, (dst, ..))
-            | I::Ext((dst, ..))
+            | I::ExtractBits((dst, ..))
+            | I::InsertBits((dst, ..))
             | I::JumpLinkRegister(_, (dst, _))
             | I::LoadInt(_, _, (dst, _))
             | I::LoadCop(Processor::Cop(1), _, (dst, _))
@@ -50,7 +55,7 @@ impl Memory {
             | I::LoadWordLeft((dst, _))
             | I::LoadWordRight((dst, _))
             | I::LoadWordPCRelative((dst, _))
-            | I::Lui((dst, _))
+            | I::LoadUpperImmediate((dst, _))
             | I::MoveFromCop(_, (dst, ..))
             | I::MoveFromHiCop(_, (dst, ..))
             | I::MoveFromHi(dst)
@@ -62,11 +67,12 @@ impl Memory {
             | I::MulR6(_, _, (dst, ..))
             | I::Nor((dst, ..))
             | I::Or((dst, ..))
-            | I::Ori((dst, ..))
+            | I::OrImmediate((dst, ..))
             | I::ReadHWReg((dst, ..))
             | I::ReadPGPR((dst, ..))
             | I::RotateRight((dst, ..))
             | I::RotateRightVariable((dst, ..))
+            | I::SelectOnZero(None, _, (dst, ..))
             | I::SignExtend(_, (dst, ..))
             | I::ShiftLeftLogical((dst, ..))
             | I::ShiftLeftLogicalVar((dst, ..))
@@ -76,10 +82,10 @@ impl Memory {
             | I::ShiftRightLogicalVar((dst, ..))
             | I::SetOnLessThan(_, (dst, ..))
             | I::SetOnLessThanImmediate(_, (dst, ..))
-            | I::Subtract(_, (dst, ..)) 
+            | I::Subtract(_, (dst, ..))
             | I::WordSwapHalfwords((dst, _))
             | I::Xor((dst, ..))
-            | I::Xori((dst, ..)) => {
+            | I::XorImmediate((dst, ..)) => {
                 let val = self.history.pop()?;
                 self.set_reg(dst.id, val);
             }
@@ -87,6 +93,7 @@ impl Memory {
             // Undo floating point arithmetic operations
             I::AbsFloat(_, (dst, _))
             | I::AddFloat(_, (dst, ..))
+            | I::AlignVariableFloat((dst, ..))
             | I::Ceil(_, _, (dst, _))
             | I::Class(_, (dst, _))
             | I::CvtFloats(_, _, (dst, _))
@@ -109,16 +116,17 @@ impl Memory {
             | I::MoveOnZero(Some(_), (dst, ..))
             | I::MoveOnNotZero(Some(_), (dst, ..))
             | I::MulFloat(_, (dst, ..))
-            | I::NegFloat(_, (dst, _)) 
+            | I::NegFloat(_, (dst, _))
             | I::Reciprocal(_, (dst, _))
+            | I::ReciprocalSqrt(_, (dst, _))
             | I::RoundToInt(_, (dst, _))
             | I::Round(_, _, (dst, _))
             | I::PairedPS(_, _, (dst, ..))
             | I::SelectFloat(_, (dst, ..))
+            | I::SelectOnZero(Some(_), _, (dst, ..))
             | I::Sqrt(_, (dst, _))
             | I::SubtractFloat(_, (dst, ..))
-            | I::Trunc(_, _, (dst, ..))
-            => {
+            | I::Trunc(_, _, (dst, ..)) => {
                 let val = self.history.pop_u64()?;
                 self.cop1_reg[dst.id] = val;
             }
@@ -128,13 +136,17 @@ impl Memory {
                 self.hi = self.history.pop()?;
             }
             // DI and EI
-            I::DI(reg) | I::EI(reg) => {
+            I::DisableInterrupts(reg) | I::EnableInterrupts(reg) => {
                 self.cop0.status0 = self.reg(reg.id);
                 let val = self.history.pop()?;
                 self.set_reg(reg.id, val);
             }
             I::MoveToCop(Processor::Cop(0), (_, reg, Immediate(sel))) => {
-                self.cop0.set_register(&self.cfg, reg.id, *sel as usize, self.history.pop()?);
+                self.cop0
+                    .set_register(&self.cfg, reg.id, *sel as usize, self.history.pop()?);
+            }
+            I::MoveToCop(..) => {
+                unimplemented!();
             }
             I::MoveToHi(_) => {
                 self.hi = self.history.pop()?;
@@ -152,7 +164,7 @@ impl Memory {
                 let reg_val = self.history.pop()?;
                 let overwritten_word = self.history.pop()?;
                 let addr = sum_addr.evaluate(self);
-                self.set_reg(rt.id,reg_val);
+                self.set_reg(rt.id, reg_val);
                 self.store_word(addr, overwritten_word).unwrap();
             }
             I::StoreConditionalPairedWord((rt, _, base)) => {
@@ -160,7 +172,7 @@ impl Memory {
                 self.cop0.lladdr = self.history.pop()?;
                 let reg_val = self.history.pop()?;
                 let overwritten_dw = self.history.pop_u64()?;
-                self.set_reg(rt.id,reg_val);
+                self.set_reg(rt.id, reg_val);
                 self.store_doubleword(addr, overwritten_dw).unwrap();
             }
             I::StoreCop(Processor::Cop(1), it, (_, ref sum_addr)) => {
@@ -178,7 +190,7 @@ impl Memory {
                 let val = self.history.pop_u64()?;
                 self.store_int(*it, addr, val).unwrap();
             }
-            I::StoreWordLeft((_, ref sum_addr)) | I::StoreWordRight((_, ref sum_addr))=> {
+            I::StoreWordLeft((_, ref sum_addr)) | I::StoreWordRight((_, ref sum_addr)) => {
                 let overwritten_val = self.history.pop()?;
                 let addr = sum_addr.evaluate(self) & 0xFFFFFFFC;
                 self.store_word(addr, overwritten_val).unwrap();
@@ -191,6 +203,7 @@ impl Memory {
             | I::BranchCopZ(..)
             | I::Branch(..)
             | I::BranchOverflowCompact(..)
+            | I::BranchZero(..)
             | I::Jump(..)
             | I::JumpIndexedCompact(..)
             | I::JumpRegister(..) => {
@@ -201,7 +214,7 @@ impl Memory {
             | I::BranchCompactLink(..)
             | I::BranchCompactZeroLink(..)
             | I::JumpLink(..)
-            | I::Nal => {
+            | I::NopLink => {
                 let val = self.history.pop()?;
                 self.set_reg(31, val);
             }
@@ -223,20 +236,44 @@ impl Memory {
                 undo_syscall(self);
             }
             // Instructions that don't change memory state
-            I::Break | I::Cache(..) | I::Ehb | I::Ginvi(..) | I::Ginvt(..) | I::MoveToHiCop(..) | I::Nop | I::Pause | I::Pref(..) | I::PrefIndexed(..) | I::SwDebugBreak(..) | I::SigReservedInstruction(..) | I::SuperScalarNop | I::Sync(..) | I::Synci(..) | I::Trap(..) | I::TrapImmediate(..) | I::TLBInvalidate | I::TLBInvalidateFlush | I::TLBProbe | I::TLBRead | I::TLBWrite | I::TLBWriteRandom | I::Wait => {
+            I::Break
+            | I::Cache(..)
+            | I::ExecutionHazardBarrier
+            | I::Ginvi(..)
+            | I::Ginvt(..)
+            | I::MoveToHiCop(..)
+            | I::Nop
+            | I::Pause
+            | I::Pref(..)
+            | I::PrefIndexed(..)
+            | I::SwDebugBreak(..)
+            | I::SigReservedInstruction(..)
+            | I::SuperScalarNop
+            | I::Sync(..)
+            | I::SyncInstructionWrites(..)
+            | I::Trap(..)
+            | I::TrapImmediate(..)
+            | I::TLBInvalidate
+            | I::TLBInvalidateFlush
+            | I::TLBProbe
+            | I::TLBRead
+            | I::TLBWrite
+            | I::TLBWriteRandom
+            | I::Wait => {
                 // Do nothing :3
             }
             //Unimplemented instructions
-            I::FpComp(..)
+            I::FloatCompare(..)
             | I::FpCmpMask(..)
             | I::Cop2(..)
-            | I::Ctc(..)
-            | I::Dvp(..)
-            | I::Eret(..)
-            | I::Evp(..)
-            | I::Jalx(..)
-            | I::LoadCop(..) 
-            | I::StoreCop(..) 
+            | I::CopyToControlCop(..)
+            | I::DisableVirtualProcessor(..)
+            | I::ExceptionReturn(..)
+            | I::DebugExceptionReturn
+            | I::EnableVirtualProcessor(..)
+            | I::JumpLinkExchange(..)
+            | I::LoadCop(..)
+            | I::StoreCop(..)
             | I::WritePGPR(..) => {
                 todo!()
             }

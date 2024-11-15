@@ -110,16 +110,16 @@ impl Display for Instruction {
         match *self {
             I::AbsFloat(ft, (dst, src)) => w!(f, "abs.{ft} {dst}, {src}"),
             I::Add(sign, (dst, src1, src2)) => w!(f, "add{sign} {dst}, {src1}, {src2}"),
-            I::Addi(sign, (dst, src1, Imm(imm))) => w!(f, "addi{sign} {dst}, {src1}, {imm}"),
+            I::AddImmediate(sign, (dst, src1, Imm(imm))) => w!(f, "addi{sign} {dst}, {src1}, {imm}"),
             I::AddFloat(ft, (dst, src1, src2)) => w!(f, "add.{ft} {dst}, {src1}, {src2}"),
-            I::Addiupc((rs, Imm(imm))) => w!(f, "addiupc {rs}, {imm}"),
+            I::AddImmediatePC((rs, Imm(imm))) => w!(f, "addiupc {rs}, {imm}"),
             I::Align((rd, rs, rt, Imm(bp))) => w!(f, "align {rd}, {rs}, {rt}, {bp}"),
             I::AlignVariableFloat((fd, fs, ft, rs)) => w!(f, "alnv.ps {fd}, {fs}, {ft}, {rs}"),
             I::AlignedAuiPC((rs, Imm(imm))) => w!(f, "aluipc {rs}, {imm}"),
             I::And((rd, rs, rt)) => w!(f, "and {rd}, {rs}, {rt}"),
-            I::Andi((rt, rs, Imm(imm))) => w!(f, "andi {rt}, {rs}, {imm}"),
-            I::Aui((rt, rs, Imm(imm))) => w!(f, "aui {rt}, {rs}, {imm}"),
-            I::AuiPC((rs, Imm(imm))) => w!(f, "auipc {rs}, {imm}"),
+            I::AndImmediate((rt, rs, Imm(imm))) => w!(f, "andi {rt}, {rs}, {imm}"),
+            I::AddUpperImmediate((rt, rs, Imm(imm))) => w!(f, "aui {rt}, {rs}, {imm}"),
+            I::AddUpperImmediatePC((rs, Imm(imm))) => w!(f, "auipc {rs}, {imm}"),
             I::Branch(cmp, likely, (rs, rt, ref label)) => {
                 // Always branch operation
                 if rs == r0 && rt == r0 {
@@ -181,7 +181,7 @@ impl Display for Instruction {
                 w!(f, "{command}{eq}z {ct}, {label}")
             }
             I::Bitswap((rd, rt)) => w!(f, "bitswap {rd}, {rt}"),
-            I::FpComp(ref str, fmt, (Imm(cc), fs, ft)) => {
+            I::FloatCompare(ref str, fmt, (Imm(cc), fs, ft)) => {
                 if cc == 0 {
                     w!(f, "c.{str}.{fmt} {fs}, {ft}")
                 } else {
@@ -198,7 +198,7 @@ impl Display for Instruction {
                     w!(f, "ceil.{it}.{fmt} {fd}, {fs}")
                 }
             }
-            I::CfCop(cop, (rt, rs)) => match cop {
+            I::CopyFromControlCop(cop, (rt, rs)) => match cop {
                 Processor::Cop(1) => w!(f, "cfc1 {rt}, {rs}"),
                 Processor::Cop(2) => todo!(),
                 _ => unreachable!(),
@@ -210,7 +210,7 @@ impl Display for Instruction {
             I::Cop2(Imm(imm)) => w!(f, "cop2 {imm}"),
             I::Crc32(it, (rt, rs)) => w!(f, "crc32{it} {rt}, {rs}, {rt}"),
             I::Crc32C(it, (rt, rs)) => w!(f, "crc32c{it} {rt}, {rs}, {rt}"),
-            I::Ctc(cop, (rt, rs)) => match cop {
+            I::CopyToControlCop(cop, (rt, rs)) => match cop {
                 Processor::Cop(1) => w!(f, "ctc1 {rt}, {rs}"),
                 Processor::Cop(2) => todo!(),
                 _ => unreachable!(),
@@ -229,19 +229,19 @@ impl Display for Instruction {
             ),
             I::CvtFromPS(true, (fd, fs)) => w!(f, "cvt.s.pu {fd}, {fs}"),
             I::CvtFromPS(false, (fd, fs)) => w!(f, "cvt.s.pl {fd}, {fs}"),
-            I::Deret => w!(f, "deret"),
-            I::DI(rt) => w!(f, "di {rt}"),
+            I::DebugExceptionReturn => w!(f, "deret"),
+            I::DisableInterrupts(rt) => w!(f, "di {rt}"),
             I::DivR6(sign, (rd, rs, rt)) => w!(f, "div{sign} {rd}, {rs}, {rt}"),
             I::DivOld(sign, (rs, rt)) => w!(f, "div{sign} {rs}, {rt}"),
             I::ModR6(sign, (rd, rs, rt)) => w!(f, "mod{sign} {rd}, {rs}, {rt}"),
             I::DivFloat(fmt, (fd, fs, ft)) => w!(f, "div.{fmt} {fd}, {fs}, {ft}"),
-            I::Dvp(rt) => w!(f, "dvp {rt}"),
-            I::Ehb => w!(f, "ehb"),
-            I::EI(rt) => w!(f, "ei {rt}"),
-            I::Eret(true) => w!(f, "eret"),
-            I::Eret(false) => w!(f, "eretnc"),
-            I::Evp(rt) => w!(f, "evp {rt}"),
-            I::Ext((rt, rs, Imm(pos), Imm(size))) => w!(f, "ext {rt}, {rs}, {pos}, {size}"),
+            I::DisableVirtualProcessor(rt) => w!(f, "dvp {rt}"),
+            I::ExecutionHazardBarrier => w!(f, "ehb"),
+            I::EnableInterrupts(rt) => w!(f, "ei {rt}"),
+            I::ExceptionReturn(true) => w!(f, "eret"),
+            I::ExceptionReturn(false) => w!(f, "eretnc"),
+            I::EnableVirtualProcessor(rt) => w!(f, "evp {rt}"),
+            I::ExtractBits((rt, rs, Imm(pos), Imm(size))) => w!(f, "ext {rt}, {rs}, {pos}, {size}"),
             I::Floor(it, fmt, (fd, fs)) => {
                 if it == IntType::Doubleword {
                     w!(f, "floor.l.{fmt} {fd}, {fs}")
@@ -251,7 +251,7 @@ impl Display for Instruction {
             }
             I::Ginvi(rs) => w!(f, "ginvi {rs}"),
             I::Ginvt((rs, Imm(typ))) => w!(f, "ginvt {rs}, {typ}"),
-            I::Ins((rt, rs, Imm(pos), Imm(size))) => w!(f, "ins {rt}, {rs}, {pos}, {size}"),
+            I::InsertBits((rt, rs, Imm(pos), Imm(size))) => w!(f, "ins {rt}, {rs}, {pos}, {size}"),
             I::Jump(ref label) => w!(f, "j {label}"),
             I::JumpLink(ref label) => w!(f, "jal {label}"),
             I::JumpLinkRegister(false, (rd, rs)) if rd == Register::new_gpr(31) => {
@@ -262,7 +262,7 @@ impl Display for Instruction {
                 w!(f, "jalr.hb {rs}")
             }
             I::JumpLinkRegister(true, (rd, rs)) => w!(f, "jalr.hb {rd}, {rs}"),
-            I::Jalx(ref label) => w!(f, "jalx {label}"),
+            I::JumpLinkExchange(ref label) => w!(f, "jalx {label}"),
             I::JumpIndexedCompact(true, (rt, Imm(offset))) => w!(f, "jialc {rt}, {offset}"),
             I::JumpIndexedCompact(false, (rt, Imm(offset))) => w!(f, "jic {rt}, {offset}"),
             I::JumpRegister(false, rs) => w!(f, "jr {rs}"),
@@ -280,7 +280,7 @@ impl Display for Instruction {
             I::LoadLinkedWord((rt, ref sum_addr)) => w!(f, "ll {rt}, {sum_addr}"),
             I::LoadLinkedWordPaired((rt, rd, base)) => w!(f, "llwp {rt}, {rd}, ({base})"),
             I::LoadScaledAddress((rd, rs, rt, Imm(sa))) => w!(f, "lsa {rd}, {rs}, {rt}, {sa}"),
-            I::Lui((rt, Imm(imm))) => w!(f, "lui {rt}, {imm}"),
+            I::LoadUpperImmediate((rt, Imm(imm))) => w!(f, "lui {rt}, {imm}"),
             I::LoadWordLeft((rt, ref sum_addr)) => w!(f, "lwl {rt}, {sum_addr}"),
             I::LoadWordRight((rt, ref sum_addr)) => w!(f, "lwr {rt}, {sum_addr}"),
             I::LoadWordPCRelative((rs, Imm(offset))) => w!(f, "lwpc {rs}, {offset}"),
@@ -350,12 +350,12 @@ impl Display for Instruction {
             I::MulR6(false, sign, (rd, rs, rt)) => w!(f, "mul{sign} {rd}, {rs}, {rt}"),
             I::MulFloat(fmt, (fd, fs, ft)) => w!(f, "mul.{fmt} {fd}, {fs}, {ft}"),
             I::Mult(sign, (rs, rt)) => w!(f, "mult{sign} {rs}, {rt}"),
-            I::Nal => w!(f, "nal"),
+            I::NopLink => w!(f, "nal"),
             I::NegFloat(fmt, (fd, fs)) => w!(f, "neg.{fmt} {fd}, {fs}"),
             I::Nop => w!(f, "nop"),
             I::Nor((rd, rs, rt)) => w!(f, "nor {rd}, {rs}, {rt}"),
             I::Or((rd, rs, rt)) => w!(f, "or {rd}, {rs}, {rt}"),
-            I::Ori((rd, rs, Imm(imm))) => w!(f, "ori {rd}, {rs}, {imm}"),
+            I::OrImmediate((rd, rs, Imm(imm))) => w!(f, "ori {rd}, {rs}, {imm}"),
             I::Pause => w!(f, "pause"),
             I::PairedPS(false, false, (fd, fs, ft)) => w!(f, "pll.ps {fd}, {fs}, {ft}"),
             I::PairedPS(false, true, (fd, fs, ft)) => w!(f, "plu.ps {fd}, {fs}, {ft}"),
@@ -371,7 +371,7 @@ impl Display for Instruction {
             I::RotateRightVariable((rd, rt, rs)) => w!(f, "rotrv {rd}, {rt}, {rs}"),
             I::Round(IntType::Doubleword, fmt, (fd, fs)) => w!(f, "round.l.{fmt} {fd}, {fs}"),
             I::Round(it, fmt, (fd, fs)) => w!(f, "round.{it}.{fmt} {fd}, {fs}"),
-            I::Rsqrt(fmt, (fd, fs)) => w!(f, "rsqrt.{fmt} {fd}, {fs}"),
+            I::ReciprocalSqrt(fmt, (fd, fs)) => w!(f, "rsqrt.{fmt} {fd}, {fs}"),
             I::StoreInt(it, (rt, ref sum_addr)) => w!(f, "s{it} {rt}, {sum_addr}"),
             I::StoreCop(Processor::Cop(1), it, (rt, ref sum_addr)) => {
                 w!(f, "s{it}c1 {rt}, {sum_addr}")
@@ -411,7 +411,7 @@ impl Display for Instruction {
             I::StoreWordLeft((rt, ref sum_addr)) => w!(f, "swl {rt}, {sum_addr}"),
             I::StoreWordRight((rt, ref sum_addr)) => w!(f, "swr {rt}, {sum_addr}"),
             I::Sync(Imm(stype)) => w!(f, "sync {stype}"),
-            I::Synci(ref sum_addr) => w!(f, "synci {sum_addr}"),
+            I::SyncInstructionWrites(ref sum_addr) => w!(f, "synci {sum_addr}"),
             I::Syscall(Imm(code)) => w!(f, "syscall"),
             I::Trap(sign, cmp, (rs, rt)) => w!(f, "t{cmp}{sign} {rs}, {rt}"),
             I::TrapImmediate(sign, cmp, (rs, Imm(imm))) => w!(f, "t{cmp}i{sign} {rs}, {imm}"),
@@ -427,7 +427,7 @@ impl Display for Instruction {
             I::WritePGPR((rd, rt)) => w!(f, "wrpgpr {rd}, {rt}"),
             I::WordSwapHalfwords((rd, rt)) => w!(f, "wsbh {rd}, {rt}"),
             I::Xor((rd, rs, rt)) => w!(f, "xor {rd}, {rs}, {rt}"),
-            I::Xori((rd, rs, Imm(imm))) => w!(f, "xori {rd}, {rs}, {imm}"),
+            I::XorImmediate((rd, rs, Imm(imm))) => w!(f, "xori {rd}, {rs}, {imm}"),
         }
         Ok(())
     }

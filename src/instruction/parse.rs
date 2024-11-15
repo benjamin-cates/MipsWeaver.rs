@@ -95,7 +95,7 @@ fn parse_instruction_helper(
             I::AbsFloat(ft.unwrap(), parse_two_args(args, (val, val))?)
         }
         "add" | "addu" => I::Add(sign, parse_three_args(args, (is_gpr, is_gpr, is_gpr))?),
-        "addi" | "addiu" => I::Addi(
+        "addi" | "addiu" => I::AddImmediate(
             sign,
             parse_three_args(args, (is_gpr, is_gpr, valid_lit(sign, 32)))?,
         ),
@@ -103,7 +103,7 @@ fn parse_instruction_helper(
             let val = &valid_float(ft.unwrap());
             I::AddFloat(ft.unwrap(), parse_three_args(args, (val, val, val))?)
         }
-        "addiupc" => I::Addiupc(parse_two_args(args, (is_gpr, valid_lit(Sign::Signed, 19)))?),
+        "addiupc" => I::AddImmediatePC(parse_two_args(args, (is_gpr, valid_lit(Sign::Signed, 19)))?),
         "align" => I::Align(parse_four_args(
             args,
             (is_gpr, is_gpr, is_gpr, valid_lit(U, 2)),
@@ -113,9 +113,9 @@ fn parse_instruction_helper(
         }
         "aluipc" => I::AlignedAuiPC(parse_two_args(args, (is_gpr, valid_lit(U, 16)))?),
         "and" => I::And(parse_three_args(args, (is_gpr, is_gpr, is_gpr))?),
-        "andi" => I::Andi(parse_three_args(args, (is_gpr, is_gpr, valid_lit(U, 32)))?),
-        "aui" => I::Aui(parse_three_args(args, (is_gpr, is_gpr, valid_lit(S, 16)))?),
-        "auipc" => I::AuiPC(parse_two_args(args, (is_gpr, valid_lit(S, 16)))?),
+        "andi" => I::AndImmediate(parse_three_args(args, (is_gpr, is_gpr, valid_lit(U, 32)))?),
+        "aui" => I::AddUpperImmediate(parse_three_args(args, (is_gpr, is_gpr, valid_lit(S, 16)))?),
+        "auipc" => I::AddUpperImmediatePC(parse_two_args(args, (is_gpr, valid_lit(S, 16)))?),
         "b" => I::Branch(
             Comparison::Eq,
             Likely::Normal,
@@ -260,7 +260,7 @@ fn parse_instruction_helper(
                 (valid_float(FloatType::Single), valid_float(ft.unwrap())),
             )?,
         ),
-        "cfc1" => I::CfCop(Processor::Cop(1), parse_two_args(args, (is_gpr, is_cop1))?),
+        "cfc1" => I::CopyFromControlCop(Processor::Cop(1), parse_two_args(args, (is_gpr, is_cop1))?),
         "cfc2" => Err(MIPSParseError {
             sequence: Some(name.to_owned()),
             position: 0,
@@ -304,7 +304,7 @@ fn parse_instruction_helper(
                 I::Crc32C(it, (rt, rs))
             }
         }
-        "ctc1" => I::Ctc(Processor::Cop(1), parse_two_args(args, (is_gpr, is_cop1))?),
+        "ctc1" => I::CopyToControlCop(Processor::Cop(1), parse_two_args(args, (is_gpr, is_cop1))?),
         "ctc2" => Err(MIPSParseError {
             sequence: Some(name.to_owned()),
             position: 0,
@@ -357,12 +357,12 @@ fn parse_instruction_helper(
                 ),
             )?,
         ),
-        "deret" => I::Deret,
+        "deret" => I::DebugExceptionReturn,
         "di" => {
             if args.trim().len() == 0 {
-                I::DI(Register::new_gpr(0))
+                I::DisableInterrupts(Register::new_gpr(0))
             } else {
-                I::DI(parse_one_arg(args, is_gpr)?)
+                I::DisableInterrupts(parse_one_arg(args, is_gpr)?)
             }
         }
         "div" | "divu" => {
@@ -372,24 +372,24 @@ fn parse_instruction_helper(
                 I::DivOld(sign, parse_two_args(args, (is_gpr, is_gpr))?)
             }
         }
-        "dvp" => I::Dvp(parse_one_arg(args, is_gpr)?),
-        "ehb" => I::Ehb,
+        "dvp" => I::DisableVirtualProcessor(parse_one_arg(args, is_gpr)?),
+        "ehb" => I::ExecutionHazardBarrier,
         "ei" => {
             if args.trim().len() == 0 {
-                I::EI(Register::new_gpr(0))
+                I::EnableInterrupts(Register::new_gpr(0))
             } else {
-                I::EI(parse_one_arg(args, is_gpr)?)
+                I::EnableInterrupts(parse_one_arg(args, is_gpr)?)
             }
         }
-        "eret" => I::Eret(true),
-        "eretnc" => I::Eret(false),
+        "eret" => I::ExceptionReturn(true),
+        "eretnc" => I::ExceptionReturn(false),
         "mod" | "modu" => I::ModR6(sign, parse_three_args(args, (is_gpr, is_gpr, is_gpr))?),
         "div.s" | "div.d" | "div.ps" => {
             let val = &valid_float(ft.unwrap());
             I::DivFloat(ft.unwrap(), parse_three_args(args, (val, val, val))?)
         }
-        "evp" => I::Evp(parse_one_arg(args, is_gpr)?),
-        "ext" => I::Ext(parse_four_args(
+        "evp" => I::EnableVirtualProcessor(parse_one_arg(args, is_gpr)?),
+        "ext" => I::ExtractBits(parse_four_args(
             args,
             (is_gpr, is_gpr, valid_lit(U, 5), valid_lit_min_max(0, 32)),
         )?),
@@ -421,7 +421,7 @@ fn parse_instruction_helper(
                     sequence: Some(args.to_owned()),
                 })?
             }
-            I::Ins(parsed_args)
+            I::InsertBits(parsed_args)
         }
         "j" => I::Jump(parse_one_arg(args, aligned_offset)?),
         "jal" => I::JumpLink(parse_one_arg(args, aligned_offset)?),
@@ -434,7 +434,7 @@ fn parse_instruction_helper(
             };
             I::JumpLinkRegister(hb, arguments)
         }
-        "jalx" => I::Jalx(parse_one_arg(args, skip_val)?),
+        "jalx" => I::JumpLinkExchange(parse_one_arg(args, skip_val)?),
         "jialc" => I::JumpIndexedCompact(true, parse_two_args(args, (is_gpr, skip_val))?),
         "jic" => I::JumpIndexedCompact(false, parse_two_args(args, (is_gpr, skip_val))?),
         "jr" | "jr.hb" => {
@@ -493,7 +493,7 @@ fn parse_instruction_helper(
             args,
             (is_gpr, is_gpr, is_gpr, valid_lit(U, 2)),
         )?),
-        "lui" => I::Lui(parse_two_args(args, (is_gpr, skip_val))?),
+        "lui" => I::LoadUpperImmediate(parse_two_args(args, (is_gpr, skip_val))?),
         "lwl" => I::LoadWordLeft(parse_two_args(args, (is_gpr, skip_val))?),
         "lwr" => I::LoadWordRight(parse_two_args(args, (is_gpr, skip_val))?),
         "lwpc" => I::LoadWordPCRelative(parse_two_args(args, (is_gpr, valid_lit(S, 19)))?),
@@ -639,7 +639,7 @@ fn parse_instruction_helper(
             I::MulFloat(ft.unwrap(), parse_three_args(args, (val, val, val))?)
         }
         "mult" | "multu" => I::Mult(sign, parse_two_args(args, (is_gpr, is_gpr))?),
-        "nal" => I::Nal,
+        "nal" => I::NopLink,
         "neg.d" | "neg.s" | "neg.ps" => {
             let val = &valid_float(ft.unwrap());
             I::NegFloat(ft.unwrap(), parse_two_args(args, (val, val))?)
@@ -647,7 +647,7 @@ fn parse_instruction_helper(
         "nop" => I::Nop,
         "nor" => I::Nor(parse_three_args(args, (is_gpr, is_gpr, is_gpr))?),
         "or" => I::Or(parse_three_args(args, (is_gpr, is_gpr, is_gpr))?),
-        "ori" => I::Ori(parse_three_args(
+        "ori" => I::OrImmediate(parse_three_args(
             args,
             (is_gpr, is_gpr, valid_lit(U, 32)),
         )?),
@@ -687,7 +687,7 @@ fn parse_instruction_helper(
         }
         "rsqrt.d" | "rsqrt.s" => {
             let val = &valid_float(ft.unwrap());
-            I::Rsqrt(ft.unwrap(), parse_two_args(args, (val, val))?)
+            I::ReciprocalSqrt(ft.unwrap(), parse_two_args(args, (val, val))?)
         }
         "sb" | "sh" | "sw" => {
             let it = name[1..2].parse().unwrap();
@@ -793,7 +793,7 @@ fn parse_instruction_helper(
                 I::Sync(parse_one_arg(args, valid_lit(U, 5))?)
             }
         }
-        "synci" => I::Synci(parse_one_arg(args, skip_val)?),
+        "synci" => I::SyncInstructionWrites(parse_one_arg(args, skip_val)?),
         "syscall" => I::Syscall(Immediate(0)),
         "teq" | "tge" | "tgeu" | "tlt" | "tltu" | "tne" => I::Trap(
             sign,
@@ -828,7 +828,7 @@ fn parse_instruction_helper(
         "wrpgpr" => I::WritePGPR(parse_two_args(args, (is_gpr, is_gpr))?),
         "wsbh" => I::WordSwapHalfwords(parse_two_args(args, (is_gpr, is_gpr))?),
         "xor" => I::Xor(parse_three_args(args, (is_gpr, is_gpr, is_gpr))?),
-        "xori" => I::Xori(parse_three_args(args, (is_gpr, is_gpr, valid_lit(U, 32)))?),
+        "xori" => I::XorImmediate(parse_three_args(args, (is_gpr, is_gpr, valid_lit(U, 32)))?),
         _ => Err(MIPSParseError {
             err_type: ParseErrorType::InvalidInstruction,
             sequence: Some(name.to_owned()),
