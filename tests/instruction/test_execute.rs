@@ -1,9 +1,4 @@
-use std::{collections::BTreeSet, fs::{self, File}, io::Write};
-
-use mips_weaver::{
-    config::{Config, Version},
-    memory::Memory,
-};
+use mips_weaver::{config::Config, memory::Memory};
 
 use super::instruction_iterator::generate_instruction_iterator;
 
@@ -11,10 +6,7 @@ use super::instruction_iterator::generate_instruction_iterator;
 fn test_execution_no_crash() {
     let config = Config::default();
     let mut mem = Memory::default()
-        .init_from_code(
-            ".data\n.word 1, 2, 3",
-            &config,
-        )
+        .init_from_code(".data\n.word 1, 2, 3", &config)
         .unwrap();
     mem.cop1_reg[0] = 1.0f32.to_bits() as u64;
     mem.cop1_reg[1] = 1e300f64.to_bits();
@@ -38,20 +30,19 @@ fn test_execution_no_crash() {
             });
             if let Ok(_) = mem.linker(linker_tasks) {
                 mem.instructions.extend_from_slice(&translated);
+                println!("{translated:?}");
                 let clone = mem.clone();
-                if mem.step() == Ok(true)
-                    && mem.step() == Ok(true)
-                    && mem.step() == Ok(true)
-                    && mem.step() == Ok(true) {
-                    assert!(mem.undo().is_some(), "{}", string);
-                    assert!(mem.undo().is_some(), "{}", string);
-                    assert!(mem.undo().is_some(), "{}", string);
+                if mem.step() == Ok(true) {
+                    if mem.step() == Ok(true) {
+                        if mem.step() == Ok(true) {
+                            let _ = mem.step();
+                            assert!(mem.undo().is_some(), "{}", string);
+                        }
+                        assert!(mem.undo().is_some(), "{}", string);
+                    }
                     assert!(mem.undo().is_some(), "{}", string);
                 }
-                let _ = mem.undo();
-                let _ = mem.undo();
-                let _ = mem.undo();
-                let _ = mem.undo();
+                assert!(mem.undo().is_some(), "{}", string);
                 assert_eq!(mem, clone, "{}", string);
                 mem.instructions.pop();
                 mem.instructions.pop();

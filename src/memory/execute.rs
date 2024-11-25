@@ -30,21 +30,31 @@ impl Memory {
             }
             Ok(())
         };
-        let action = inst.clone().execute(self, execute_delay_slot)?;
+        let action = inst.clone().execute(self, execute_delay_slot);
         match action {
-            ExecutionAction::Continue => {
+            Ok(ExecutionAction::Continue) => {
                 self.program_counter += 4;
             }
-            ExecutionAction::Jump(address) => {
+            Ok(ExecutionAction::Jump(address)) => {
+                if address < 0x0040_0000 || (address - 0x0040_0000) as usize > self.instructions.len() * 4 {
+                    return Err(RuntimeException::ReservedInstruction);
+                }
                 self.history
                     .add_jump(self.program_counter - 4, address, delay_slot_executed);
                 self.program_counter = address;
             }
-            ExecutionAction::Trap => {
+            Ok(ExecutionAction::Trap) => {
+                self.program_counter += 4;
                 return Ok(false);
             }
-            ExecutionAction::Wait => {
+            Ok(ExecutionAction::Wait) => {
+                self.program_counter += 4;
                 return Ok(false);
+            }
+            Err(e) => {
+                // Advance to next instruction so undo still works
+                self.program_counter += 4;
+                return Err(e);
             }
         }
         Ok(true)

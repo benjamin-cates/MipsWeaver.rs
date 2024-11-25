@@ -251,6 +251,10 @@ impl From<IdxAddressRand> for IndexedAddr {
     }
 }
 
+fn randish(a: usize, b: usize) -> u32 {
+    ((a * (a - 1) * 4294967295 * 37 / b + a * b + 29 * b) % (429496295 - b - a)) as u32
+}
+
 pub fn gen_triple_arg<A, B, C>(
     version: Version,
     generator: impl Fn(
@@ -273,9 +277,9 @@ where
     let mut i = 0usize;
     iter::from_fn(move || {
         i += 1;
-        let a_rand = A::gen(((i * 4294967295 * 37 / 7) % 4294967295) as u32, a);
-        let b_rand = B::gen(((i * 4294967295 * 37 / 5) % 4294967295) as u32, b);
-        let c_rand = C::gen(((i * 4294967295 * 37 / 3) % 4294967295) as u32, c);
+        let a_rand = A::gen(randish(i, 7), a);
+        let b_rand = B::gen(randish(i, 3), b);
+        let c_rand = C::gen(randish(i, 5), c);
         let text = format!("{} {}, {}, {}", name, a_rand, b_rand, c_rand);
         let inst = generator((a_rand.into(), b_rand.into(), c_rand.into()));
         Some((text, inst, version))
@@ -296,8 +300,8 @@ where
     let mut i = 0usize;
     iter::from_fn(move || {
         i += 1;
-        let a_rand = A::gen(((i * 4294967295 * 37 / 7) % 4294967295) as u32, a);
-        let b_rand = B::gen(((i * 4294967295 * 37 / 5) % 4294967295) as u32, b);
+        let a_rand = A::gen(randish(i, 7), a);
+        let b_rand = B::gen(randish(i, 3), b);
         let text = format!("{} {}, {}", name, a_rand, b_rand);
         let inst = generator((a_rand.into(), b_rand.into()));
         Some((text, inst, version))
@@ -316,7 +320,7 @@ where
     let mut i = 0usize;
     iter::from_fn(move || {
         i += 1;
-        let a_rand = A::gen(((i * 4294967295 * 37 / 7) % 4294967295) as u32, a);
+        let a_rand = A::gen(randish(i, 7), a);
         let text = format!("{} {}", name, a_rand);
         let inst = generator(a_rand.into());
         Some((text, inst, version))
@@ -348,10 +352,10 @@ where
     let mut i = 0usize;
     iter::from_fn(move || {
         i += 1;
-        let a_rand = A::gen(((i * 4294967295 * 37 / 7) % 4294967295) as u32, a);
-        let b_rand = B::gen(((i * 4294967295 * 37 / 5) % 4294967295) as u32, b);
-        let c_rand = C::gen(((i * 4294967295 * 37 / 3) % 4294967295) as u32, c);
-        let d_rand = D::gen(((i * 4294967295 * 37 / 11) % 4294967295) as u32, d);
+        let a_rand = A::gen(randish(i, 7), a);
+        let b_rand = B::gen(randish(i, 3), b);
+        let c_rand = C::gen(randish(i, 5), c);
+        let d_rand = D::gen(randish(i, 11), d);
         let text = format!("{} {}, {}, {}, {}", name, a_rand, b_rand, c_rand, d_rand);
         let inst = generator((a_rand.into(), b_rand.into(), c_rand.into(), d_rand.into()));
         Some((text, inst, version))
@@ -372,8 +376,8 @@ where
     let mut i = 0usize;
     iter::from_fn(move || {
         i += 1;
-        let a_rand = A::gen(((i * 4294967295 * 37 / 7) % 4294967295) as u32, a);
-        let b_rand = B::gen(((i * 4294967295 * 37 / 5) % 4294967295) as u32, b);
+        let a_rand = A::gen(randish(i, 7), a);
+        let b_rand = B::gen(randish(i, 3), b);
         let text = format!("{} {}, {}, {}", name, a_rand, b_rand, a_rand);
         let inst = generator((a_rand.into(), b_rand.into()));
         Some((text, inst, version))
@@ -402,9 +406,9 @@ where
     let mut i = 0usize;
     iter::from_fn(move || {
         i += 1;
-        let a_rand = A::gen(((i * 4294967295 * 37 / 7) % 4294967295) as u32, a);
-        let b_rand = B::gen(((i * 4294967295 * 37 / 5) % 4294967295) as u32, b);
-        let c_rand = C::gen(((i * 4294967295 * 37 / 3) % 4294967295) as u32, c);
+        let a_rand = A::gen(randish(i, 7), a);
+        let b_rand = B::gen(randish(i, 3), b);
+        let c_rand = C::gen(randish(i, 3), c);
         let text = format!("{} {}, {}, ({})", name, a_rand, b_rand, c_rand);
         let inst = generator((a_rand.into(), b_rand.into(), c_rand.into()));
         Some((text, inst, version))

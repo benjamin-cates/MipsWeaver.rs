@@ -41,7 +41,7 @@ impl Register {
         self.is_cop(1)
     }
     pub fn is_paired_single(&self) -> bool {
-        self.is_cop(1) && self.id != 31
+        self.is_cop(1)
     }
     pub fn is_cop(&self, cop: u8) -> bool {
         self.processor == Processor::Cop(cop)

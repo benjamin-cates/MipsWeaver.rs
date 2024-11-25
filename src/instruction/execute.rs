@@ -560,6 +560,7 @@ impl Instruction {
                 return Ok(ExecutionAction::Jump(mem.reg(reg.id)));
             }
             I::LoadInt(sign, it, (rt, ref sum_addr)) => {
+                mem.history.push(mem.reg(rt.id));
                 let address = sum_addr.evaluate(&mem);
                 let value = match (sign, it) {
                     (_, IntType::Word) => mem.load_word(address)?,
@@ -569,54 +570,53 @@ impl Instruction {
                     (Sign::Signed, IntType::Byte) => mem.load_halfword(address)? as i8 as u32,
                     (_, IntType::Doubleword) => unreachable!(),
                 };
-                mem.history.push(mem.reg(rt.id));
                 mem.set_reg(rt.id, value);
             }
             I::LoadCop(Cop(1), it, (rt, ref sum_addr)) => {
+                mem.history.push_u64(mem.cop1_reg[rt.id]);
                 let addr = sum_addr.evaluate(&mem);
                 let value: u64 = match it {
                     IntType::Doubleword => mem.load_doubleword(addr)?,
                     IntType::Word => mem.load_word(addr)? as u64,
                     _ => unreachable!(),
                 };
-                mem.history.push_u64(mem.cop1_reg[rt.id]);
                 mem.cop1_reg[rt.id] = value;
             }
             I::LoadCop(..) => {
                 return Err(RuntimeException::ReservedInstruction);
             }
             I::LoadIndexedCop1(it, (rt, idx_addr)) => {
+                mem.history.push_u64(mem.cop1_reg[rt.id]);
                 let addr = idx_addr.evaluate(&mem);
                 let value: u64 = match it {
                     IntType::Doubleword => mem.load_doubleword(addr)?,
                     IntType::Word => mem.load_word(addr)? as u64,
                     _ => unreachable!(),
                 };
-                mem.history.push_u64(mem.cop1_reg[rt.id]);
                 mem.cop1_reg[rt.id] = value;
             }
             I::LoadLinkedWord((rt, ref sum_addr)) => {
-                let addr = sum_addr.evaluate(&mem);
-                let value = mem.load_word(addr)?;
                 mem.history.push(mem.reg(rt.id));
                 mem.history.push(mem.cop0.lladdr);
+                let addr = sum_addr.evaluate(&mem);
+                let value = mem.load_word(addr)?;
                 mem.set_reg(rt.id, value);
                 mem.cop0.lladdr = addr | 1;
             }
             I::LoadLinkedWordPaired((rd, rt, base)) => {
-                let addr = mem.reg(base.id);
-                let value: u64 = mem.load_doubleword(addr)?;
                 mem.history.push(mem.reg(rd.id));
                 mem.history.push(mem.reg(rt.id));
                 mem.history.push(mem.cop0.lladdr);
+                let addr = mem.reg(base.id);
+                let value: u64 = mem.load_doubleword(addr)?;
                 mem.set_reg(rd.id, (value << 32) as u32);
                 mem.set_reg(rt.id, (value & 0xFFFFFFFF) as u32);
                 mem.cop0.lladdr = addr | 1;
             }
             I::LoadScaledAddress((rd, rs, rt, Immediate(sa))) => {
+                mem.history.push(mem.reg(rd.id));
                 let scaling_factor = 2 << sa;
                 let addr = (mem.reg(rs.id) as i64) * scaling_factor + (mem.reg(rt.id) as i64);
-                mem.history.push(mem.reg(rd.id));
                 mem.set_reg(rd.id, addr as u32);
             }
             I::LoadUpperImmediate((rt, Immediate(imm))) => {
@@ -624,10 +624,10 @@ impl Instruction {
                 mem.set_reg(rt.id, (imm as u32 & 0xFFFF) << 16);
             }
             I::LoadIndexedUnalignedCop1(IntType::Doubleword, (fd, idx_addr)) => {
+                mem.history.push_u64(mem.cop1_reg[fd.id]);
                 let addr = idx_addr.evaluate(&mem) & 0xFFFFFFF8;
                 println!("{:x}", addr);
                 let load = mem.load_doubleword(addr)?;
-                mem.history.push_u64(mem.cop1_reg[fd.id]);
                 mem.cop1_reg[fd.id] = load;
             }
             I::LoadIndexedUnalignedCop1(..) => unreachable!(),
@@ -670,7 +670,7 @@ impl Instruction {
                 mem.history.push(mem.hi);
                 mem.history.push(mem.lo);
                 let cur = ((mem.hi as u64) << 32 + mem.lo as u64) as i64;
-                let res = cur + (mem.reg(rs.id) as i32 as i64) * (mem.reg(rt.id) as i32 as i64);
+                let res = cur.wrapping_add((mem.reg(rs.id) as i32 as i64).wrapping_mul(mem.reg(rt.id) as i32 as i64));
                 mem.hi = (res >> 32) as u32;
                 mem.lo = (res & 0xFFFFFFFF) as u32;
             }
@@ -678,7 +678,7 @@ impl Instruction {
                 mem.history.push(mem.hi);
                 mem.history.push(mem.lo);
                 let cur = (mem.hi as u64) << 32 + mem.lo as u64;
-                let res = cur + mem.reg(rs.id) as u64 * mem.reg(rt.id) as u64;
+                let res = cur.wrapping_add((mem.reg(rs.id) as u64).wrapping_mul(mem.reg(rt.id) as u64));
                 mem.hi = (res >> 32) as u32;
                 mem.lo = (res & 0xFFFFFFFF) as u32;
             }
@@ -686,7 +686,7 @@ impl Instruction {
                 mem.history.push(mem.hi);
                 mem.history.push(mem.lo);
                 let cur = ((mem.hi as u64) << 32 + mem.lo as u64) as i64;
-                let res = cur - (mem.reg(rs.id) as i32 as i64) * (mem.reg(rt.id) as i32 as i64);
+                let res = cur.wrapping_sub((mem.reg(rs.id) as i32 as i64).wrapping_mul(mem.reg(rt.id) as i32 as i64));
                 mem.hi = (res >> 32) as u32;
                 mem.lo = (res & 0xFFFFFFFF) as u32;
             }
@@ -694,7 +694,7 @@ impl Instruction {
                 mem.history.push(mem.hi);
                 mem.history.push(mem.lo);
                 let cur = (mem.hi as u64) << 32 + mem.lo as u64;
-                let res = cur - mem.reg(rs.id) as u64 * mem.reg(rt.id) as u64;
+                let res = cur.wrapping_sub((mem.reg(rs.id) as u64).wrapping_mul(mem.reg(rt.id) as u64));
                 mem.hi = (res >> 32) as u32;
                 mem.lo = (res & 0xFFFFFFFF) as u32;
             }
@@ -784,16 +784,12 @@ impl Instruction {
                 mem.lo = mem.reg(rs.id);
             }
             I::MoveFromCop(Cop(0), (rt, rd, Immediate(sel))) => {
+                    mem.history.push(mem.reg(rt.id));
                 let reg = mem
                     .cop0
                     .get_register(&mem.cfg, rd.id, sel as usize)
-                    .ok_or(RuntimeException::ReservedInstruction);
-                if reg.is_ok() {
-                    mem.history.push(mem.reg(rt.id));
-                    mem.set_reg(rt.id, reg.unwrap());
-                } else {
-                    reg?;
-                }
+                    .ok_or(RuntimeException::ReservedInstruction)?;
+                mem.set_reg(rt.id, reg);
             }
             I::MoveFromCop(Cop(1), (rt, fs, _)) => {
                 mem.history.push(mem.reg(rt.id));
@@ -992,8 +988,7 @@ impl Instruction {
                 mem.set_reg(rd.id, mem.reg(rt.id).rotate_right(mem.reg(rs.id) & 0x1F));
             }
             I::Round(it, fmt, (fd, fs)) => {
-                mem.history.push((mem.cop1_reg[fd.id] >> 32) as u32);
-                mem.history.push(mem.cop1_reg[fd.id] as u32);
+                mem.history.push_u64(mem.cop1_reg[fd.id]);
                 let float = if fmt == FloatType::Double {
                     mem.get_f64(fs.id)
                 } else {
@@ -1010,42 +1005,47 @@ impl Instruction {
                 unary_float(mem, fmt, fd.id, fs.id, |a| 1.0 / a.sqrt());
             }
             I::StoreInt(it, (rt, ref sum_addr)) => {
+                mem.history.push_u64(0);
                 let address = sum_addr.evaluate(&mem);
                 let val = mem.reg(rt.id);
                 let old = mem.store_int(it, address, val as u64)?;
+                let _ = mem.history.pop_u64();
                 mem.history.push_u64(old);
             }
             I::StoreConditional((rt, ref sum_addr)) => {
                 let address = sum_addr.evaluate(&mem);
                 let old_rt = mem.reg(rt.id);
+                mem.history.push(old_rt);
+                mem.history.push(mem.cop0.lladdr);
+                mem.history.push(0);
                 if (mem.cop0.lladdr & 1) == 1 {
                     let old = mem.store_word(address, mem.reg(rt.id))?;
+                    mem.history.pop();
                     mem.history.push(old);
                     mem.set_reg(rt.id, 1);
                 } else {
                     mem.set_reg(rt.id, 0);
                 }
-                mem.history.push(old_rt);
-                mem.history.push(mem.cop0.lladdr);
                 // Set the LL bit to zero
                 mem.cop0.lladdr &= 0xFFFF_FFFE;
             }
             I::StoreConditionalPairedWord((rt, rd, base)) => {
                 let address = mem.reg(base.id);
-                mem.history.push_u64(mem.load_doubleword(address)?);
                 let rt_old = mem.reg(rt.id);
+                mem.history.push(rt_old);
+                mem.history.push(mem.cop0.lladdr);
+                mem.history.push_u64(0);
                 if (mem.cop0.lladdr & 1) == 1 {
                     let old = mem.store_doubleword(
                         address,
                         (mem.reg(rd.id) as u64) << 32 | (mem.reg(rt.id) as u64),
                     )?;
+                    let _ = mem.history.pop_u64();
                     mem.history.push_u64(old);
                     mem.set_reg(rt.id, 1);
                 } else {
                     mem.set_reg(rt.id, 0);
                 }
-                mem.history.push(rt_old);
-                mem.history.push(mem.cop0.lladdr);
                 // Set the LL bit to zero
                 mem.cop0.lladdr &= 0xFFFF_FFFE;
             }
@@ -1054,7 +1054,9 @@ impl Instruction {
             }
             I::StoreCop(Cop(1), it, (ft, ref sum_addr)) => {
                 let addr = sum_addr.evaluate(mem);
+                mem.history.push_u64(0);
                 let old = mem.store_int(it, addr, mem.cop1_reg[ft.id])?;
+                let _ = mem.history.pop_u64();
                 mem.history.push_u64(old);
             }
             I::StoreCop(..) => {
@@ -1062,7 +1064,9 @@ impl Instruction {
             }
             I::StoreIndexedCop1(it, (ft, idx_addr)) => {
                 let addr = idx_addr.evaluate(mem);
+                mem.history.push_u64(0);
                 let old = mem.store_int(it, addr, mem.cop1_reg[ft.id])?;
+                let _ = mem.history.pop_u64();
                 mem.history.push_u64(old);
             }
             I::SignExtend(it, (rd, rt)) => {
@@ -1099,8 +1103,7 @@ impl Instruction {
                 }
             }
             I::SelectOnZero(Some(fmt), cmp, (fd, fs, ft)) => {
-                mem.history.push((mem.cop1_reg[fd.id] >> 32) as u32);
-                mem.history.push(mem.cop1_reg[fd.id] as u32);
+                mem.history.push_u64(mem.cop1_reg[fd.id]);
                 if (cmp == Comparison::Ne) ^ (mem.cop1_reg[fd.id] & 1 == 0) {
                     if fmt == FloatType::Single {
                         mem.cop1_reg[fd.id] = mem.cop1_reg[fs.id] as u32 as u64;
@@ -1175,15 +1178,18 @@ impl Instruction {
             }
             I::StoreIndexedUnalignedCop1(it, (fs, idx_addr)) => {
                 let addr = idx_addr.evaluate(mem) & 0xFFFFFFFC;
+                mem.history.push_u64(0);
                 let old = mem.store_int(it, addr, mem.cop1_reg[fs.id])?;
+                let _ = mem.history.pop_u64();
                 mem.history.push_u64(old);
             }
             I::StoreWordLeft((rt, ref sum_addr)) => {
                 let eff_addr = sum_addr.evaluate(&mem);
                 let mem_addr = eff_addr & 0xFFFFFFFC;
+                mem.history.push(0);
                 let old_val = mem.load_word(mem_addr)?;
+                mem.history.pop();
                 mem.history.push(old_val);
-                let loading = mem.load_word(mem_addr)?;
                 let new_word = if eff_addr & 0b11 == 0b00 {
                     old_val & 0x00FFFFFF | (mem.reg(rt.id) << 24)
                 } else if eff_addr & 0b11 == 0b01 {
@@ -1198,7 +1204,9 @@ impl Instruction {
             I::StoreWordRight((rt, ref sum_addr)) => {
                 let eff_addr = sum_addr.evaluate(&mem);
                 let mem_addr = eff_addr & 0xFFFFFFFC;
+                mem.history.push(0);
                 let old_val = mem.load_word(mem_addr)?;
+                mem.history.pop();
                 mem.history.push(old_val);
                 let new_word = if eff_addr & 0b11 == 0b00 {
                     mem.reg(rt.id)
@@ -1249,8 +1257,7 @@ impl Instruction {
                 // Do nothing
             }
             I::Trunc(it, fmt, (fd, fs)) => {
-                mem.history.push((mem.cop1_reg[fd.id] >> 32) as u32);
-                mem.history.push(mem.cop1_reg[fd.id] as u32);
+                mem.history.push_u64(mem.cop1_reg[fd.id]);
                 let float = if fmt == FloatType::Double {
                     mem.get_f64(fs.id)
                 } else {

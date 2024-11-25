@@ -40,7 +40,6 @@ impl Memory {
             | I::AddUpperImmediatePC((dst, ..))
             | I::AlignedAuiPC((dst, _))
             | I::Bitswap((dst, _))
-            | I::CopyFromControlCop(_, (dst, _))
             | I::CountLeadingOne((dst, _))
             | I::CountLeadingZero((dst, _))
             | I::Crc32(_, (dst, _))
@@ -68,8 +67,6 @@ impl Memory {
             | I::Nor((dst, ..))
             | I::Or((dst, ..))
             | I::OrImmediate((dst, ..))
-            | I::ReadHWReg((dst, ..))
-            | I::ReadPGPR((dst, ..))
             | I::RotateRight((dst, ..))
             | I::RotateRightVariable((dst, ..))
             | I::SelectOnZero(None, _, (dst, ..))
@@ -93,7 +90,6 @@ impl Memory {
             // Undo floating point arithmetic operations
             I::AbsFloat(_, (dst, _))
             | I::AddFloat(_, (dst, ..))
-            | I::AlignVariableFloat((dst, ..))
             | I::Ceil(_, _, (dst, _))
             | I::Class(_, (dst, _))
             | I::CvtFloats(_, _, (dst, _))
@@ -170,43 +166,43 @@ impl Memory {
             I::StoreInt(it, (_, ref addr)) => {
                 let addr = addr.evaluate(self);
                 let val = self.history.pop_u64()?;
-                self.store_int(*it, addr, val).unwrap();
+                let _ = self.store_int(*it, addr, val);
             }
             I::StoreConditional((rt, ref sum_addr)) => {
+                let overwritten_word = self.history.pop()?;
                 self.cop0.lladdr = self.history.pop()?;
                 let reg_val = self.history.pop()?;
-                let overwritten_word = self.history.pop()?;
                 let addr = sum_addr.evaluate(self);
                 self.set_reg(rt.id, reg_val);
-                self.store_word(addr, overwritten_word).unwrap();
+                let _ = self.store_word(addr, overwritten_word);
             }
             I::StoreConditionalPairedWord((rt, _, base)) => {
                 let addr = self.reg(base.id);
+                let overwritten_dw = self.history.pop_u64()?;
                 self.cop0.lladdr = self.history.pop()?;
                 let reg_val = self.history.pop()?;
-                let overwritten_dw = self.history.pop_u64()?;
                 self.set_reg(rt.id, reg_val);
-                self.store_doubleword(addr, overwritten_dw).unwrap();
+                let _ = self.store_doubleword(addr, overwritten_dw);
             }
             I::StoreCop(Processor::Cop(1), it, (_, ref sum_addr)) => {
                 let addr = sum_addr.evaluate(self);
                 let val = self.history.pop_u64()?;
-                self.store_int(*it, addr, val).unwrap();
+                let _ = self.store_int(*it, addr, val);
             }
             I::StoreIndexedCop1(it, (_, idx_addr)) => {
                 let addr = idx_addr.evaluate(self);
                 let val = self.history.pop_u64()?;
-                self.store_int(*it, addr, val).unwrap();
+                let _ = self.store_int(*it, addr, val);
             }
             I::StoreIndexedUnalignedCop1(it, (_, idx_addr)) => {
                 let addr = idx_addr.evaluate(self);
                 let val = self.history.pop_u64()?;
-                self.store_int(*it, addr, val).unwrap();
+                let _ = self.store_int(*it, addr, val);
             }
             I::StoreWordLeft((_, ref sum_addr)) | I::StoreWordRight((_, ref sum_addr)) => {
                 let overwritten_val = self.history.pop()?;
                 let addr = sum_addr.evaluate(self) & 0xFFFFFFFC;
-                self.store_word(addr, overwritten_val).unwrap();
+                let _ = self.store_word(addr, overwritten_val);
             }
 
             // Branches without links
@@ -279,17 +275,21 @@ impl Memory {
             //Unimplemented instructions
             I::FloatCompare(..)
             | I::FpCmpMask(..)
+            | I::AlignVariableFloat(..)
             | I::Cop2(..)
+            | I::CopyFromControlCop(..)
             | I::CopyToControlCop(..)
             | I::DisableVirtualProcessor(..)
             | I::ExceptionReturn(..)
+            | I::ReadHWReg(..)
+            | I::ReadPGPR(..)
             | I::DebugExceptionReturn
             | I::EnableVirtualProcessor(..)
             | I::JumpLinkExchange(..)
             | I::LoadCop(..)
             | I::StoreCop(..)
             | I::WritePGPR(..) => {
-                todo!()
+                // Do nothing teehee :3
             }
         }
         Some(())

@@ -1,7 +1,10 @@
 use mips_weaver::{
     config::Config,
-    instruction::Instruction, memory::{linker::LinkerTask, Memory},
+    instruction::Instruction,
+    memory::{linker::LinkerTask, Memory},
 };
+
+use super::instruction_iterator::generate_instruction_iterator;
 fn ser(s: &str, cfg: &Config, linker_tasks: &mut Vec<LinkerTask>) -> u32 {
     Instruction::parse(s, cfg)
         .expect(s)
@@ -25,6 +28,36 @@ fn bits(s: &str) -> u32 {
     }
     int
 }
+
+#[test]
+fn test_serialize_all() {
+    let mem = Memory::default()
+        .init_from_code(".text\nori $0, $0, 0\nori $0, $0, 0", &Config::default())
+        .unwrap();
+    for (_str, instruction, version) in generate_instruction_iterator(512) {
+        let cfg = Config {
+            version,
+            ..Default::default()
+        };
+        let mut linker_tasks: Vec<LinkerTask> = vec![];
+        let translated = mem.translate_pseudo_instruction(instruction, &cfg);
+        if translated.is_err() {
+            continue;
+        }
+        for (i, inst) in 
+            translated
+            .unwrap()
+            .into_iter()
+            .enumerate()
+        {
+            if inst == Instruction::Nop && i != 0 {
+                continue;
+            }
+            inst.serialize(&cfg, 0x0400_0000, &mut linker_tasks);
+        }
+    }
+}
+
 #[rustfmt::skip]
 const SIMPLE_TESTS: &[(&'static str, &'static str)] = &[
     ("010001-10000-00000-01100-01011-000101", "abs.s $11, $12"),
@@ -678,25 +711,22 @@ fn test_serialize() {
     let mut lt: Vec<LinkerTask> = vec![];
     for test in SIMPLE_TESTS.iter() {
         println!("{}", test.1);
-        assert_eq!(
-            ser(test.1, &cfgr5, &mut lt),
-            bits(test.0),
-            "{}",
-            test.1
-        );
+        assert_eq!(ser(test.1, &cfgr5, &mut lt), bits(test.0), "{}", test.1);
     }
     for test in SIMPLE_TESTS_R6.iter() {
-        assert_eq!(
-            ser(test.1, &cfgr6, &mut lt),
-            bits(test.0),
-            "{}",
-            test.1
-        );
+        assert_eq!(ser(test.1, &cfgr6, &mut lt), bits(test.0), "{}", test.1);
     }
     let mem = Memory::default();
     for test in PSEUDO_TESTS {
-        let insts = mem.translate_pseudo_instruction(Instruction::parse(test.0, &cfgr5).expect(test.0), &cfgr5).unwrap();
-        let mut other_insts = [Instruction::Nop, Instruction::Nop, Instruction::Nop, Instruction::Nop];
+        let insts = mem
+            .translate_pseudo_instruction(Instruction::parse(test.0, &cfgr5).expect(test.0), &cfgr5)
+            .unwrap();
+        let mut other_insts = [
+            Instruction::Nop,
+            Instruction::Nop,
+            Instruction::Nop,
+            Instruction::Nop,
+        ];
         for (i, pseudo) in test.1.iter().enumerate() {
             other_insts[i] = Instruction::parse(pseudo, &cfgr5).unwrap();
         }

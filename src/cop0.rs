@@ -81,6 +81,7 @@ impl Cop0 {
             (16, 1) => Some(1),
             (17, 0) => Some(self.lladdr),
             (30, 0) => Some(self.error_epc),
+            (31, 0) => None,
             (31, num) => Some(self.scratch[num - 1]),
             (_, _) => None,
         }
