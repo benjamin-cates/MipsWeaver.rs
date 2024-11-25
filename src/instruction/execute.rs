@@ -80,18 +80,24 @@ impl Instruction {
             }
             I::AddImmediatePC((dst, Immediate(imm))) => {
                 mem.history.push(mem.reg(dst.id));
-                mem.set_reg(dst.id, mem.program_counter + (imm * 4) as u32);
+                mem.set_reg(
+                    dst.id,
+                    mem.program_counter
+                        .wrapping_add((imm as u32).wrapping_mul(4)),
+                );
             }
             I::Align((dst, src1, src2, Immediate(offset))) => {
                 mem.history.push(mem.reg(dst.id));
                 mem.set_reg(
                     dst.id,
                     (((mem.reg(src1.id) as u64) << (8 * offset))
-                        | (mem.reg(src2.id) as u64) << (8 * (offset - 4)))
+                        | (mem.reg(src2.id) as u64).wrapping_shr((8 * (offset - 4)) as u32))
                         as u32,
                 );
             }
-            I::AlignVariableFloat(_) => todo!(),
+            I::AlignVariableFloat(_) => {
+                return Err(RuntimeException::ReservedInstruction);
+            }
             I::AlignedAuiPC((dst, Immediate(imm))) => {
                 mem.history.push(mem.reg(dst.id));
                 mem.set_reg(
@@ -121,9 +127,7 @@ impl Instruction {
                     if mem.cfg.do_branch_delay {
                         execute_delay_slot(mem)?;
                     }
-                    mem.history.push(mem.reg(31));
-                    mem.set_reg(31, mem.program_counter + 4);
-                    return Ok(ExecutionAction::Jump(label.get_address(mem)));
+                    return Ok(ExecutionAction::Jump(label.get_address(mem).unwrap()));
                 } else if mem.cfg.do_branch_delay {
                     mem.program_counter += 4;
                     if likely == Likely::Normal {
@@ -137,7 +141,7 @@ impl Instruction {
                     if mem.cfg.do_branch_delay {
                         execute_delay_slot(mem)?;
                     }
-                    return Ok(ExecutionAction::Jump(label.get_address(mem)));
+                    return Ok(ExecutionAction::Jump(label.get_address(mem).unwrap()));
                 } else if mem.cfg.do_branch_delay {
                     mem.program_counter += 4;
                     if likely == Likely::Normal {
@@ -153,7 +157,7 @@ impl Instruction {
                         execute_delay_slot(mem)?;
                     }
                     mem.set_reg(31, mem.program_counter);
-                    return Ok(ExecutionAction::Jump(label.get_address(mem)));
+                    return Ok(ExecutionAction::Jump(label.get_address(mem).unwrap()));
                 } else if mem.cfg.do_branch_delay {
                     mem.program_counter += 4;
                     if likely == Likely::Normal {
@@ -164,13 +168,13 @@ impl Instruction {
             I::BranchCompact(cmp, sign, (reg1, reg2, ref label)) => {
                 if signed_compare(sign, cmp, mem.reg(reg1.id), mem.reg(reg2.id)) {
                     mem.program_counter += 4;
-                    return Ok(ExecutionAction::Jump(label.get_address(mem)));
+                    return Ok(ExecutionAction::Jump(label.get_address(mem).unwrap()));
                 }
             }
             I::BranchCompactZero(cmp, (reg, ref label)) => {
                 if compare(cmp, mem.reg(reg.id) as i32, 0) {
                     mem.program_counter += 4;
-                    return Ok(ExecutionAction::Jump(label.get_address(mem)));
+                    return Ok(ExecutionAction::Jump(label.get_address(mem).unwrap()));
                 }
             }
             I::BranchCompactZeroLink(cmp, (reg, ref label)) => {
@@ -178,7 +182,7 @@ impl Instruction {
                 if compare(cmp, mem.reg(reg.id) as i32, 0) {
                     mem.program_counter += 4;
                     mem.set_reg(31, mem.program_counter);
-                    return Ok(ExecutionAction::Jump(label.get_address(mem)));
+                    return Ok(ExecutionAction::Jump(label.get_address(mem).unwrap()));
                 }
                 return Ok(ExecutionAction::Continue);
             }
@@ -186,7 +190,7 @@ impl Instruction {
                 mem.program_counter += 4;
                 mem.history.push(mem.reg(31));
                 mem.set_reg(31, mem.program_counter);
-                return Ok(ExecutionAction::Jump(label.get_address(mem)));
+                return Ok(ExecutionAction::Jump(label.get_address(mem).unwrap()));
             }
             I::BranchOverflowCompact(overflow, (rs, rt, ref label)) => {
                 let real_overflow: bool = !fits_bits(
@@ -196,11 +200,11 @@ impl Instruction {
                 );
                 if real_overflow == overflow {
                     mem.program_counter += 4;
-                    return Ok(ExecutionAction::Jump(label.get_address(mem)));
+                    return Ok(ExecutionAction::Jump(label.get_address(mem).unwrap()));
                 }
             }
             I::BranchCop(..) => {
-                todo!()
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::BranchCopZ(Cop(1), eq, (ct, ref label)) => {
                 let is_zero = (mem.get_f32(ct.id).to_bits() & 1) == 0;
@@ -209,14 +213,16 @@ impl Instruction {
                     execute_delay_slot(mem)?;
                 }
                 if is_zero != eq {
-                    return Ok(ExecutionAction::Jump(label.get_address(mem)));
+                    return Ok(ExecutionAction::Jump(label.get_address(mem).unwrap()));
                 }
                 if !mem.cfg.do_branch_delay {
                     mem.program_counter -= 4;
                 }
                 return Ok(ExecutionAction::Continue);
             }
-            I::BranchCopZ(..) => unimplemented!(),
+            I::BranchCopZ(..) => {
+                return Err(RuntimeException::ReservedInstruction);
+            }
             I::Bitswap((rd, rt)) => {
                 let val = mem.reg(rt.id);
                 let new_val = ((((val >> 0) & 0xFF) as u8).reverse_bits() as u32) << 0
@@ -230,13 +236,13 @@ impl Instruction {
                 return Err(RuntimeException::Break);
             }
             I::FloatCompare(..) => {
-                todo!();
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::FpCmpMask(..) => {
-                todo!();
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::Cache(..) => {
-                todo!();
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::Ceil(it, ft, (fd, fs)) => {
                 let int = if ft == FloatType::Double {
@@ -254,7 +260,7 @@ impl Instruction {
                 }
             }
             I::CopyFromControlCop(..) => {
-                todo!();
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::Class(fmt, (fd, fs)) => {
                 let (negative, class) = if fmt == FloatType::Double {
@@ -287,7 +293,7 @@ impl Instruction {
                 mem.set_reg(rd.id, mem.reg(rs.id).leading_zeros());
             }
             I::Cop2(..) => {
-                todo!();
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::Crc32(it, (rt, rs)) => {
                 mem.history.push(mem.reg(rt.id));
@@ -312,7 +318,7 @@ impl Instruction {
                 mem.set_reg(rt.id, crc);
             }
             I::CopyToControlCop(..) => {
-                todo!()
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::CvtToFloat(fmt, it, (fd, fs)) => {
                 mem.history.push_u64(mem.cop1_reg[fd.id]);
@@ -336,6 +342,7 @@ impl Instruction {
                 }
             }
             I::CvtToInt(it, fmt, (fd, fs)) => {
+                mem.history.push(mem.cop1.fcsr);
                 mem.history.push_u64(mem.cop1_reg[fd.id]);
                 let float = if fmt == FloatType::Double {
                     mem.get_f64(fs.id)
@@ -379,10 +386,11 @@ impl Instruction {
                 );
             }
             I::DebugExceptionReturn => {
-                todo!()
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::DisableInterrupts(rt) => {
                 mem.history.push(mem.reg(rt.id));
+                mem.history.push(mem.cop0.status0);
                 mem.set_reg(rt.id, mem.cop0.status0);
                 mem.cop0.status0 &= 0xFFFFFFFE;
             }
@@ -435,6 +443,8 @@ impl Instruction {
                 );
             }
             I::DivFloat(fmt, (fd, fs, ft)) => {
+                mem.history.push(mem.cop1.fcsr);
+                mem.history.push_u64(mem.cop1_reg[fd.id]);
                 let (one, two) = if fmt == FloatType::Single {
                     (mem.get_f32(fs.id) as f64, mem.get_f32(ft.id) as f64)
                 } else {
@@ -443,7 +453,6 @@ impl Instruction {
                 if two == 0.0 {
                     mem.cop1.try_error(FPE::DivideByZero)?;
                 }
-                mem.history.push_u64(mem.cop1_reg[fd.id]);
                 if fmt == FloatType::Single {
                     mem.set_f32(fd.id, (one / two) as f32);
                 } else {
@@ -451,21 +460,22 @@ impl Instruction {
                 }
             }
             I::DisableVirtualProcessor(..) => {
-                todo!()
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::ExecutionHazardBarrier => {
                 // Do nothing
             }
             I::EnableInterrupts(rt) => {
                 mem.history.push(mem.reg(rt.id));
+                mem.history.push(mem.cop0.status0);
                 mem.set_reg(rt.id, mem.cop0.status0);
                 mem.cop0.status0 |= 1;
             }
             I::ExceptionReturn(_) => {
-                todo!()
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::EnableVirtualProcessor(..) => {
-                todo!()
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::ExtractBits((rt, rs, Immediate(pos), Immediate(size))) => {
                 mem.history.push(mem.reg(rt.id));
@@ -499,7 +509,8 @@ impl Instruction {
                 mem.set_reg(rt.id, (mem.reg(rt.id) & insertion_mask) | to_insert);
             }
             I::Jump(ref label) => {
-                return Ok(ExecutionAction::Jump(label.get_address(mem)));
+                mem.program_counter += 4;
+                return Ok(ExecutionAction::Jump(label.get_address(mem).unwrap()));
             }
             I::JumpLink(ref label) => {
                 mem.history.push(mem.reg(31));
@@ -510,7 +521,7 @@ impl Instruction {
                 } else {
                     mem.set_reg(31, mem.program_counter);
                 }
-                return Ok(ExecutionAction::Jump(label.get_address(mem)));
+                return Ok(ExecutionAction::Jump(label.get_address(mem).unwrap()));
             }
             I::JumpLinkRegister(_hb, (rd, rs)) => {
                 let jump_point = mem.reg(rs.id);
@@ -525,9 +536,10 @@ impl Instruction {
                 return Ok(ExecutionAction::Jump(jump_point));
             }
             I::JumpLinkExchange(..) => {
-                unimplemented!();
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::JumpIndexedCompact(false, (rd, Immediate(offset))) => {
+                mem.program_counter += 4;
                 return Ok(ExecutionAction::Jump(
                     (mem.reg(rd.id) as i64 + offset) as u32,
                 ));
@@ -535,6 +547,7 @@ impl Instruction {
             I::JumpIndexedCompact(true, (rd, Immediate(offset))) => {
                 mem.history.push(mem.reg(31));
                 mem.set_reg(31, mem.program_counter + 4);
+                mem.program_counter += 4;
                 return Ok(ExecutionAction::Jump(
                     (mem.reg(rd.id) as i64 + offset) as u32,
                 ));
@@ -569,7 +582,9 @@ impl Instruction {
                 mem.history.push_u64(mem.cop1_reg[rt.id]);
                 mem.cop1_reg[rt.id] = value;
             }
-            I::LoadCop(..) => unimplemented!(),
+            I::LoadCop(..) => {
+                return Err(RuntimeException::ReservedInstruction);
+            }
             I::LoadIndexedCop1(it, (rt, idx_addr)) => {
                 let addr = idx_addr.evaluate(&mem);
                 let value: u64 = match it {
@@ -610,8 +625,10 @@ impl Instruction {
             }
             I::LoadIndexedUnalignedCop1(IntType::Doubleword, (fd, idx_addr)) => {
                 let addr = idx_addr.evaluate(&mem) & 0xFFFFFFF8;
+                println!("{:x}", addr);
+                let load = mem.load_doubleword(addr)?;
                 mem.history.push_u64(mem.cop1_reg[fd.id]);
-                mem.cop1_reg[fd.id] = mem.load_doubleword(addr)?;
+                mem.cop1_reg[fd.id] = load;
             }
             I::LoadIndexedUnalignedCop1(..) => unreachable!(),
             I::LoadWordLeft((rt, ref sum_addr)) => {
@@ -767,19 +784,24 @@ impl Instruction {
                 mem.lo = mem.reg(rs.id);
             }
             I::MoveFromCop(Cop(0), (rt, rd, Immediate(sel))) => {
-                mem.history.push(mem.reg(rt.id));
-                mem.set_reg(
-                    rt.id,
-                    mem.cop0
-                        .get_register(&mem.cfg, rd.id, sel as usize)
-                        .ok_or(RuntimeException::ReservedInstruction)?,
-                );
+                let reg = mem
+                    .cop0
+                    .get_register(&mem.cfg, rd.id, sel as usize)
+                    .ok_or(RuntimeException::ReservedInstruction);
+                if reg.is_ok() {
+                    mem.history.push(mem.reg(rt.id));
+                    mem.set_reg(rt.id, reg.unwrap());
+                } else {
+                    reg?;
+                }
             }
             I::MoveFromCop(Cop(1), (rt, fs, _)) => {
                 mem.history.push(mem.reg(rt.id));
                 mem.set_reg(rt.id, mem.cop1_reg[fs.id] as u32);
             }
-            I::MoveFromCop(..) => todo!(),
+            I::MoveFromCop(..) => {
+                return Err(RuntimeException::ReservedInstruction);
+            }
             I::MoveFromHi(reg) => {
                 mem.history.push(mem.reg(reg.id));
                 mem.set_reg(reg.id, mem.hi);
@@ -936,26 +958,27 @@ impl Instruction {
                 // Do nothing
             }
             I::ReadHWReg(..) => {
-                todo!();
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::ReadPGPR(..) => {
-                todo!();
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::Reciprocal(fmt, (fd, fs)) => {
                 unary_float(mem, fmt, fd.id, fs.id, |a| 1.0f64 / a);
             }
             I::RoundToInt(fmt, (fd, fs)) => {
+                mem.history.push(mem.cop1.fcsr);
                 mem.history.push_u64(mem.cop1_reg[fd.id]);
                 if fmt == FloatType::Single {
                     let val = mem.get_f32(fs.id);
                     if val.round() != val {
-                        mem.cop1.try_error(FPE::InvalidOperation)?;
+                        mem.cop1.try_error(FPE::Inexact)?;
                     }
                     mem.set_f32(fd.id, val.round());
                 } else {
                     let val = mem.get_f64(fs.id);
                     if val.round() != val {
-                        mem.cop1.try_error(FPE::InvalidOperation)?;
+                        mem.cop1.try_error(FPE::Inexact)?;
                     }
                     mem.set_f64(fd.id, val.round());
                 }
@@ -989,37 +1012,39 @@ impl Instruction {
             I::StoreInt(it, (rt, ref sum_addr)) => {
                 let address = sum_addr.evaluate(&mem);
                 let val = mem.reg(rt.id);
-                mem.history.push_u64(mem.load_int(it, address)?);
-                mem.store_int(it, address, val as u64)?;
+                let old = mem.store_int(it, address, val as u64)?;
+                mem.history.push_u64(old);
             }
             I::StoreConditional((rt, ref sum_addr)) => {
                 let address = sum_addr.evaluate(&mem);
-                mem.history.push(mem.load_word(address)?);
-                mem.history.push(mem.reg(rt.id));
-                mem.history.push(mem.cop0.lladdr);
+                let old_rt = mem.reg(rt.id);
                 if (mem.cop0.lladdr & 1) == 1 {
-                    mem.store_word(address, mem.reg(rt.id))?;
+                    let old = mem.store_word(address, mem.reg(rt.id))?;
+                    mem.history.push(old);
                     mem.set_reg(rt.id, 1);
                 } else {
                     mem.set_reg(rt.id, 0);
                 }
+                mem.history.push(old_rt);
+                mem.history.push(mem.cop0.lladdr);
                 // Set the LL bit to zero
                 mem.cop0.lladdr &= 0xFFFF_FFFE;
             }
             I::StoreConditionalPairedWord((rt, rd, base)) => {
                 let address = mem.reg(base.id);
                 mem.history.push_u64(mem.load_doubleword(address)?);
-                mem.history.push(mem.reg(rt.id));
-                mem.history.push(mem.cop0.lladdr);
+                let rt_old = mem.reg(rt.id);
                 if (mem.cop0.lladdr & 1) == 1 {
-                    mem.store_doubleword(
+                    let old = mem.store_doubleword(
                         address,
                         (mem.reg(rd.id) as u64) << 32 | (mem.reg(rt.id) as u64),
                     )?;
+                    mem.history.push_u64(old);
                     mem.set_reg(rt.id, 1);
                 } else {
                     mem.set_reg(rt.id, 0);
                 }
+                mem.history.push(rt_old);
                 mem.history.push(mem.cop0.lladdr);
                 // Set the LL bit to zero
                 mem.cop0.lladdr &= 0xFFFF_FFFE;
@@ -1029,16 +1054,16 @@ impl Instruction {
             }
             I::StoreCop(Cop(1), it, (ft, ref sum_addr)) => {
                 let addr = sum_addr.evaluate(mem);
-                mem.history.push_u64(mem.load_int(it, addr)?);
-                mem.store_int(it, addr, mem.cop1_reg[ft.id])?;
+                let old = mem.store_int(it, addr, mem.cop1_reg[ft.id])?;
+                mem.history.push_u64(old);
             }
             I::StoreCop(..) => {
-                unimplemented!();
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::StoreIndexedCop1(it, (ft, idx_addr)) => {
                 let addr = idx_addr.evaluate(mem);
-                mem.history.push_u64(mem.load_int(it, addr)?);
-                mem.store_int(it, addr, mem.cop1_reg[ft.id])?;
+                let old = mem.store_int(it, addr, mem.cop1_reg[ft.id])?;
+                mem.history.push_u64(old);
             }
             I::SignExtend(it, (rd, rt)) => {
                 let val: u32 = match it {
@@ -1150,7 +1175,8 @@ impl Instruction {
             }
             I::StoreIndexedUnalignedCop1(it, (fs, idx_addr)) => {
                 let addr = idx_addr.evaluate(mem) & 0xFFFFFFFC;
-                mem.store_int(it, addr, mem.cop1_reg[fs.id])?;
+                let old = mem.store_int(it, addr, mem.cop1_reg[fs.id])?;
+                mem.history.push_u64(old);
             }
             I::StoreWordLeft((rt, ref sum_addr)) => {
                 let eff_addr = sum_addr.evaluate(&mem);
@@ -1241,7 +1267,7 @@ impl Instruction {
                 return Ok(ExecutionAction::Wait);
             }
             I::WritePGPR((rd, rt)) => {
-                todo!();
+                return Err(RuntimeException::ReservedInstruction);
             }
             I::WordSwapHalfwords((rd, rt)) => {
                 let val = mem.reg(rt.id);

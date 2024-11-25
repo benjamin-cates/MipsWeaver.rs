@@ -31,8 +31,8 @@ impl ExecutionHistory {
     }
     /// Pop u64 val from the history stack.
     pub(crate) fn pop_u64(&mut self) -> Option<u64> {
-        let left = self.vec.pop_back()?;
         let right = self.vec.pop_back()?;
+        let left = self.vec.pop_back()?;
         Some(((left as u64) << 32) | (right as u64))
     }
     /// Push jump to the stack. `pc` is the address of the instruction to jump from

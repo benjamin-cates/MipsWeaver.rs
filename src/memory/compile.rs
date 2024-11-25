@@ -403,7 +403,7 @@ impl Memory {
                     .add_line(line_num)
                     .add_pos(offset)?;
                 for (i, inst) in self
-                    .translate_pseudo_instruction(parsed, cfg)
+                    .translate_pseudo_instruction(parsed, cfg)?
                     .into_iter()
                     .enumerate()
                 {

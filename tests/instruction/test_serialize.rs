@@ -695,7 +695,7 @@ fn test_serialize() {
     }
     let mem = Memory::default();
     for test in PSEUDO_TESTS {
-        let insts = mem.translate_pseudo_instruction(Instruction::parse(test.0, &cfgr5).expect(test.0), &cfgr5);
+        let insts = mem.translate_pseudo_instruction(Instruction::parse(test.0, &cfgr5).expect(test.0), &cfgr5).unwrap();
         let mut other_insts = [Instruction::Nop, Instruction::Nop, Instruction::Nop, Instruction::Nop];
         for (i, pseudo) in test.1.iter().enumerate() {
             other_insts[i] = Instruction::parse(pseudo, &cfgr5).unwrap();

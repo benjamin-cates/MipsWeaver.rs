@@ -1,12 +1,66 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::{Deref, DerefMut}};
 
 use crate::{config::Config, cop0::Cop0, cop1::FloatingPointControl, instruction::Instruction};
 
 use super::ExecutionHistory;
 
+#[derive(Clone, Debug)]
+pub struct VirtualMemory {
+    inner: HashMap<u32, [u8; 256]>
+}
+impl VirtualMemory {
+    fn new() -> Self {
+        VirtualMemory {
+            inner: HashMap::new()
+        }
+    }
+}
+
+impl DerefMut for VirtualMemory {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+impl Deref for VirtualMemory {
+    type Target = HashMap<u32, [u8; 256]>;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl PartialEq for VirtualMemory {
+    fn eq(&self, other: &Self) -> bool {
+        for (key, buf) in self.inner.iter() {
+            match other.inner.get(key) {
+                Some(val) => {
+                    if val != buf{
+                        return false;
+                    }
+                }
+                None => {
+                    if buf != &[0; 256] {
+                        return false;
+                    }
+                }
+            }
+        }
+        for (key, buf) in other.iter() {
+            match self.inner.get(key) {
+                Some(_) => {},
+                None => {
+                    if buf != &[0; 256] {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
+    }
+}
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct Memory {
-    pub mem_map: HashMap<u32, [u8; 256]>,
+    pub mem_map: VirtualMemory,
     pub labels: HashMap<String, u32>,
     pub program_counter: u32,
     pub registers: [u32; 32],
@@ -30,7 +84,7 @@ impl Default for Memory {
         let mut out = Self {
             instructions: vec![],
             cfg: Config::default(),
-            mem_map: HashMap::new(),
+            mem_map: VirtualMemory::new(),
             program_counter: 0,
             registers: [0; 32],
             cop1_reg: [0; 32],

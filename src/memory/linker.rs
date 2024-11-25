@@ -1,4 +1,8 @@
-use crate::{err::MIPSParseError, instruction::Sign, util::fits_bits};
+use crate::{
+    err::{MIPSParseError, ParseErrorType},
+    instruction::Sign,
+    util::fits_bits,
+};
 
 use super::{Label, Memory};
 
@@ -49,7 +53,7 @@ impl LinkerTask {
 }
 
 impl Memory {
-    pub(crate) fn linker(&mut self, tasks: Vec<LinkerTask>) -> Result<(), MIPSParseError> {
+    pub fn linker(&mut self, tasks: Vec<LinkerTask>) -> Result<(), MIPSParseError> {
         for task in tasks.into_iter() {
             match task {
                 LinkerTask::InsertLabel {
@@ -59,7 +63,15 @@ impl Memory {
                     label,
                 } => {
                     let mut inst = self.load_word(pc).unwrap();
-                    let addr = label.get_address(self) as i64;
+                    let addr = match label.get_address(self) {
+                        Some(val) => val as i64,
+                        None => Err(MIPSParseError {
+                            sequence: Some(format!("{}", label)),
+                            position: 0,
+                            err_type: ParseErrorType::UndefinedLabel,
+                            line_idx: None,
+                        })?,
+                    };
                     let offset = (addr - ((pc + 4) as i64)) / 4;
                     if !fits_bits(offset, bit_len, Sign::Signed) {
                         todo!();
@@ -75,7 +87,15 @@ impl Memory {
                     label,
                 } => {
                     let mut inst = self.load_word(pc).unwrap();
-                    let addr = label.get_address(self);
+                    let addr = match label.get_address(self) {
+                        Some(val) => val,
+                        None => Err(MIPSParseError {
+                            sequence: Some(format!("{}", label)),
+                            position: 0,
+                            err_type: ParseErrorType::UndefinedLabel,
+                            line_idx: None,
+                        })?,
+                    };
                     let mask = (1 << bit_len) - 1;
                     if (addr & mask) != (pc & mask) {
                         todo!();

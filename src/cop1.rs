@@ -11,8 +11,8 @@ use crate::{
 /// - Register 31: Floating point control and status register (manages condition codes and exceptions)
 /// Registers that are not required by the specification are left unimplemented
 pub struct FloatingPointControl {
-    ufr: u32,
-    fcsr: u32,
+    pub ufr: u32,
+    pub fcsr: u32,
 }
 
 impl Default for FloatingPointControl {

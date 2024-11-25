@@ -37,22 +37,24 @@ impl Memory {
             Ok(0)
         }
     }
-    fn unaligned_store_word(&mut self, address: u32, value: u32) -> Result<(), RuntimeException> {
+    fn unaligned_store_word(&mut self, address: u32, value: u32) -> Result<u32, RuntimeException> {
         if !self.cfg.allow_unaligned() {
             return Err(RuntimeException::UnalignedReadWrite);
         }
+        let old = self.unaligned_load_word(address)?;
         self.store_byte(address + 0, (value >> 0) as u8)?;
         self.store_byte(address + 1, (value >> 8) as u8)?;
         self.store_byte(address + 2, (value >> 16) as u8)?;
         self.store_byte(address + 3, (value >> 24) as u8)?;
-        Ok(())
+        Ok(old)
     }
     /// Writes a word to memory
     /// If the address is not 4-byte aligned and unaligned writes are not allowed, returns
     /// [`RuntimeException::UnalignedReadWrite`]
     /// If the address reads into kernel memory when the state is not in kernel mode, returns
     /// [`RuntimeException::KernelMem`]
-    pub fn store_word(&mut self, address: u32, value: u32) -> Result<(), RuntimeException> {
+    /// Returns the old value in memory
+    pub fn store_word(&mut self, address: u32, value: u32) -> Result<u32, RuntimeException> {
         if address >= 0x7FFF_FFFD && !self.is_kernel() {
             return Err(RuntimeException::KernelMem);
         }
@@ -64,10 +66,15 @@ impl Memory {
         let addr = (address & 0xFF) as usize;
         // Write as little endian
         if let Some(arr) = self.mem_map.get_mut(&chunk_address) {
+            let old = arr[addr + 0] as u32 + ((arr[addr + 1] as u32)
+                << 8) + ((arr[addr + 2] as u32)
+                << 16) + ((arr[addr + 3] as u32)
+                << 24);
             arr[addr + 0] = (value >> 0) as u8;
             arr[addr + 1] = (value >> 8) as u8;
             arr[addr + 2] = (value >> 16) as u8;
             arr[addr + 3] = (value >> 24) as u8;
+            Ok(old)
         } else {
             let mut arr = [0; 256];
             arr[addr + 0] = (value >> 0) as u8;
@@ -75,8 +82,8 @@ impl Memory {
             arr[addr + 2] = (value >> 16) as u8;
             arr[addr + 3] = (value >> 24) as u8;
             self.mem_map.insert(chunk_address, arr);
+            Ok(0)
         }
-        Ok(())
     }
     /// Reads a byte from memory
     /// If the address is in kernel memory when the state is not in kernel mode, returns
@@ -96,27 +103,31 @@ impl Memory {
     /// Writes a byte in memory
     /// If the address is in kernel memory when the state is not in kernel mode, returns
     /// [`RuntimeException::KernelMem`]
-    pub fn store_byte(&mut self, address: u32, value: u8) -> Result<(), RuntimeException> {
+    /// Returns the old value in memory
+    pub fn store_byte(&mut self, address: u32, value: u8) -> Result<u8, RuntimeException> {
         let chunk_address = address & 0xFFFF_FF00;
         // Check for readonly address and kernel mode
         if address >= 0x8000_0000 && !self.is_kernel() {
             return Err(RuntimeException::KernelMem);
         }
         if let Some(arr) = self.mem_map.get_mut(&chunk_address) {
+            let old = arr[(address & 0xFF) as usize];
             arr[(address & 0xFF) as usize] = value;
+            Ok(old)
         } else {
             let mut arr = [0; 256];
             arr[(address & 0xFF) as usize] = value;
             self.mem_map.insert(chunk_address, arr);
+            Ok(0)
         }
-        Ok(())
     }
     /// Writes a halfword (2-bytes) to memory
     /// If the address is not 2-byte aligned and unaligned writes are not allowed, returns
     /// [`RuntimeException::UnalignedReadWrite`]
     /// If the address reads into kernel memory when the state is not in kernel mode, returns
     /// [`RuntimeException::KernelMem`]
-    pub fn store_halfword(&mut self, address: u32, value: u16) -> Result<(), RuntimeException> {
+    /// Returns the old value in memory
+    pub fn store_halfword(&mut self, address: u32, value: u16) -> Result<u16, RuntimeException> {
         // Check for forbidden addresses if not in kernel mode
         if address >= 0x7FFF_FFFF && !self.is_kernel() {
             return Err(RuntimeException::KernelMem);
@@ -125,8 +136,9 @@ impl Memory {
         if address & 1 != 0 && !self.cfg.allow_unaligned() {
             return Err(RuntimeException::UnalignedReadWrite);
         }
-        self.store_byte(address, value as u8)?;
-        self.store_byte(address + 1, (value >> 8) as u8)
+        Ok(self.store_byte(address, value as u8)? as u16
+            + (self.store_byte(address + 1, (value >> 8) as u8)? as u16)
+            << 8)
     }
     /// Reads a halfword (2-bytes) from memory
     /// If the address is not 2-byte aligned and unaligned writes are not allowed, returns
@@ -155,20 +167,21 @@ impl Memory {
         if address & 0b111 != 0 && !self.cfg.allow_unaligned() {
             return Err(RuntimeException::UnalignedReadWrite);
         }
-        Ok(self.load_word(address)? as u64 + self.load_word(address + 1)? as u64 >> 32)
+        Ok((self.load_word(address + 4)? as u64) << 32 + self.load_word(address)? as u64)
     }
     /// Writes a doubleword (8-bytes) to memory
     /// If the address is not 8-byte aligned and unaligned writes are not allowed, returns
     /// [`RuntimeException::UnalignedReadWrite`]
     /// If the address reads into kernel memory when the state is not in kernel mode, returns
     /// [`RuntimeException::KernelMem`]
-    pub fn store_doubleword(&mut self, address: u32, value: u64) -> Result<(), RuntimeException> {
+    /// Returns the old value in memory
+    pub fn store_doubleword(&mut self, address: u32, value: u64) -> Result<u64, RuntimeException> {
         // Check for unaligned memory access
         if address & 0b111 != 0 && !self.cfg.allow_unaligned() {
             return Err(RuntimeException::UnalignedReadWrite);
         }
-        self.store_word(address, value as u32)?;
-        self.store_word(address + 1, (value >> 32) as u32)
+        Ok(((self.store_word(address + 4, (value >> 32) as u32)? as u64)
+            << 32) + self.store_word(address, value as u32)? as u64)
     }
     /// Reads from memory an int type `it` and returns cast as `u64`.
     /// If the address is not 8-byte aligned and unaligned writes are not allowed, returns
@@ -189,18 +202,19 @@ impl Memory {
     /// [`RuntimeException::UnalignedReadWrite`]
     /// If the address reads into kernel memory when the state is not in kernel mode, returns
     /// [`RuntimeException::KernelMem`]
+    /// Returns the old value
     pub fn store_int(
         &mut self,
         it: IntType,
         address: u32,
         val: u64,
-    ) -> Result<(), RuntimeException> {
-        match it {
-            IntType::Byte => self.store_byte(address, val as u8),
-            IntType::Halfword => self.store_halfword(address, val as u16),
-            IntType::Word => self.store_word(address, val as u32),
-            IntType::Doubleword => self.store_doubleword(address, val),
-        }
+    ) -> Result<u64, RuntimeException> {
+        Ok(match it {
+            IntType::Byte => self.store_byte(address, val as u8)? as u64,
+            IntType::Halfword => self.store_halfword(address, val as u16)? as u64,
+            IntType::Word => self.store_word(address, val as u32)? as u64,
+            IntType::Doubleword => self.store_doubleword(address, val)? as u64,
+        })
     }
 }
 // Register read-write functions

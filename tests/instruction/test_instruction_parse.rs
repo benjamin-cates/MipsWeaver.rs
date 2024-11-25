@@ -1,12 +1,6 @@
-use super::{random::{
-    gen_crc, gen_double_arg, gen_four_arg, gen_single_arg, gen_triple_arg, gen_triple_llwp, FloatRand, IdxAddressRand, ImmediateRand, LabelRand, RegRand, SumAddressRand, UnnamedRegisterRand
-}, instruction_iterator::generate_instruction_iterator};
-use mips_weaver::{
-    config::{Config, Version},
-    instruction::{Comparison, Immediate, Instruction, Label, Likely, Sign, SumAddress},
-    memory::{FloatType, IntType},
-    register::{Processor, Register},
-};
+use mips_weaver::{config::Config, instruction::Instruction};
+
+use super::instruction_iterator::generate_instruction_iterator;
 
 const BOUND_FAILS: &[&'static str] = &[
     "addi $0, $0, 0x80000000",
@@ -56,9 +50,17 @@ fn test_fail_parse() {
 fn test_instruction_parse() {
     let num_per_variant = 512;
     for (str, inst, ver) in generate_instruction_iterator(num_per_variant) {
-        assert_eq!(Instruction::parse(str.as_str(), &Config {
-            version: ver,
-            ..Default::default()
-        }),Ok(inst), "{}", str.as_str());
+        assert_eq!(
+            Instruction::parse(
+                str.as_str(),
+                &Config {
+                    version: ver,
+                    ..Default::default()
+                }
+            ),
+            Ok(inst),
+            "{}",
+            str.as_str()
+        );
     }
 }

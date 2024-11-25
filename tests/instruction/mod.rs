@@ -6,3 +6,4 @@ mod test_pseudo;
 mod test_serialize;
 mod random;
 mod instruction_iterator;
+mod test_execute;

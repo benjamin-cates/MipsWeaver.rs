@@ -8,6 +8,9 @@ impl Memory {
     /// If the execution has to pause, returns `Ok(false)`
     /// Returns Err(_) in the case of a [`RuntimeException`]
     pub fn step(&mut self) -> Result<bool, RuntimeException> {
+        if self.program_counter < 0x0040_0000 {
+            return Ok(false);
+        }
         let idx = ((self.program_counter - 0x0040_0000) / 4) as usize;
         if idx >= self.instructions.len() {
             return Ok(false);

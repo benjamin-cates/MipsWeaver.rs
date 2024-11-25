@@ -51,9 +51,6 @@ impl Memory {
             | I::InsertBits((dst, ..))
             | I::JumpLinkRegister(_, (dst, _))
             | I::LoadInt(_, _, (dst, _))
-            | I::LoadCop(Processor::Cop(1), _, (dst, _))
-            | I::LoadIndexedCop1(_, (dst, _))
-            | I::LoadIndexedUnalignedCop1(_, (dst, _))
             | I::LoadScaledAddress((dst, ..))
             | I::LoadWordLeft((dst, _))
             | I::LoadWordRight((dst, _))
@@ -100,12 +97,13 @@ impl Memory {
             | I::Ceil(_, _, (dst, _))
             | I::Class(_, (dst, _))
             | I::CvtFloats(_, _, (dst, _))
-            | I::CvtToInt(_, _, (dst, _))
             | I::CvtToFloat(_, _, (dst, _))
             | I::CvtToPS((dst, _, _))
             | I::CvtFromPS(_, (dst, _))
-            | I::DivFloat(_, (dst, _, _))
             | I::Floor(_, _, (dst, _))
+            | I::LoadCop(Processor::Cop(1), _, (dst, _))
+            | I::LoadIndexedCop1(_, (dst, _))
+            | I::LoadIndexedUnalignedCop1(_, (dst, ..))
             | I::MultiplyAddFloat(_, _, (dst, ..))
             | I::MultiplySubFloat(_, _, (dst, ..))
             | I::MultiplyAddFloatFused(_, (dst, ..))
@@ -113,8 +111,8 @@ impl Memory {
             | I::MaxFloat(_, _, (dst, ..))
             | I::MinFloat(_, _, (dst, ..))
             | I::MoveFloat(_, (dst, ..))
-            | I::MoveToHiCop(Processor::Cop(1), (dst, ..))
-            | I::MoveToCop(Processor::Cop(1), (dst, ..))
+            | I::MoveToHiCop(Processor::Cop(1), (_, dst, ..))
+            | I::MoveToCop(Processor::Cop(1), (_, dst, ..))
             | I::MoveOnFloatCondition(Some(_), _, (dst, ..))
             | I::MoveOnZero(Some(_), (dst, ..))
             | I::MoveOnNotZero(Some(_), (dst, ..))
@@ -122,7 +120,6 @@ impl Memory {
             | I::NegFloat(_, (dst, _))
             | I::Reciprocal(_, (dst, _))
             | I::ReciprocalSqrt(_, (dst, _))
-            | I::RoundToInt(_, (dst, _))
             | I::Round(_, _, (dst, _))
             | I::PairedPS(_, _, (dst, ..))
             | I::SelectFloat(_, (dst, ..))
@@ -133,6 +130,19 @@ impl Memory {
                 let val = self.history.pop_u64()?;
                 self.cop1_reg[dst.id] = val;
             }
+            
+            // Floating point operations that may change fcsr
+            I::RoundToInt(_, (dst, _))
+            | I::CvtToInt(_, _, (dst, _))
+            | I::DivFloat(_, (dst, ..)) => {
+                let val = self.history.pop_u64()?;
+                self.cop1_reg[dst.id] = val;
+                let fcsr = self.history.pop()?;
+                if fcsr != 0 {
+                    self.cop1.fcsr = fcsr;
+                }
+
+            }
             // Messes with hi and lo registers
             I::DivOld(..) | I::MultiplyAdd(..) | I::MultiplySub(..) | I::Mult(..) => {
                 self.lo = self.history.pop()?;
@@ -140,7 +150,7 @@ impl Memory {
             }
             // DI and EI
             I::DisableInterrupts(reg) | I::EnableInterrupts(reg) => {
-                self.cop0.status0 = self.reg(reg.id);
+                self.cop0.status0 = self.history.pop()?;
                 let val = self.history.pop()?;
                 self.set_reg(reg.id, val);
             }
@@ -208,7 +218,7 @@ impl Memory {
             | I::BranchOverflowCompact(..)
             | I::BranchZero(..)
             | I::Jump(..)
-            | I::JumpIndexedCompact(..)
+            | I::JumpIndexedCompact(false, ..)
             | I::JumpRegister(..) => {
                 // Do nothing :3
             }
@@ -216,6 +226,7 @@ impl Memory {
             I::BranchZeroLink(..)
             | I::BranchCompactLink(..)
             | I::BranchCompactZeroLink(..)
+            | I::JumpIndexedCompact(true, ..)
             | I::JumpLink(..)
             | I::NopLink => {
                 let val = self.history.pop()?;

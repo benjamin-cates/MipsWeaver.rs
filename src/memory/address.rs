@@ -11,11 +11,11 @@ pub enum Label {
 }
 
 impl Label {
-    pub(crate) fn get_address(&self, mem: &Memory) -> u32 {
+    pub(crate) fn get_address(&self, mem: &Memory) -> Option<u32> {
         match self {
-            Label::Name(ref str) => *mem.labels.get(str).unwrap(),
-            Label::Offset(val) => (mem.program_counter as i64 + val) as u32,
-            Label::AlignedOffset(val) => (mem.program_counter & 0xFC000000) | (val & 0x03FFFFFF),
+            Label::Name(ref str) => mem.labels.get(str).cloned(),
+            Label::Offset(val) => Some((mem.program_counter as i64 + val) as u32),
+            Label::AlignedOffset(val) => Some((mem.program_counter & 0xFC000000) | (val & 0x03FFFFFF)),
         }
     }
 }
