@@ -593,42 +593,7 @@ pub fn no_args(
 ) -> Box<dyn Iterator<Item = (String, Instruction, Version)>> {
     Box::new(iter::once((name.to_string(), target, Version::R5)))
 }
-pub fn imm_sumaddr(
-    take: usize,
-    generator: impl Fn((Immediate, SumAddress)) -> Instruction + 'static,
-    name: &'static str,
-    bits: u32,
-    bits2: u32,
-) -> Box<dyn Iterator<Item = (String, Instruction, Version)>> {
-    Box::new(
-        gen_double_arg::<ImmediateRand, SumAddressRand>(
-            Version::R5,
-            generator,
-            name,
-            (-(1 << (bits - 1)), (1 << (bits - 1) - 1)),
-            (-(1 << (bits2 - 1)), (1 << (bits2 - 1) - 1)),
-        )
-        .take(take),
-    )
-}
-pub fn imm_sumaddr_r6(
-    take: usize,
-    generator: impl Fn((Immediate, SumAddress)) -> Instruction + 'static,
-    name: &'static str,
-    bits: u32,
-    bits2: u32,
-) -> Box<dyn Iterator<Item = (String, Instruction, Version)>> {
-    Box::new(
-        gen_double_arg::<ImmediateRand, SumAddressRand>(
-            Version::R6,
-            generator,
-            name,
-            (-(1 << (bits - 1)), (1 << (bits - 1) - 1)),
-            (-(1 << (bits2 - 1)), (1 << (bits2 - 1) - 1)),
-        )
-        .take(take),
-    )
-}
+
 pub fn reg_sumaddr(
     take: usize,
     generator: impl Fn((Register, SumAddress)) -> Instruction + Copy + 'static,

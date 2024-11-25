@@ -371,7 +371,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
         I::Break => {
             build!((0, 26), (0b001101, 6))
         }
-        I::FloatCompare(ref str, fmt, (imm, fs, ft)) => {
+        I::FloatCompare(..) => {
             todo!()
             //let cc: u32 = todo!();
             //let cond: u32 = todo!();
@@ -480,7 +480,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
                 )
             }
         }
-        I::FpCmpMask(ref str, fmt, (fd, fs, ft)) => {
+        I::FpCmpMask(..) => {
             todo!()
         }
         I::Cop2(imm) => {
@@ -1278,7 +1278,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
                 (id, 6)
             )
         }
-        I::StoreIndexedUnalignedCop1(it, (fs, ref idx_addr)) => {
+        I::StoreIndexedUnalignedCop1(_, (fs, ref idx_addr)) => {
             build!(
                 (0b010011, 6),
                 idx_addr.1.enc(),

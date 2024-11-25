@@ -11,16 +11,13 @@ use core::ops::Add;
 use std::num::FpCategory;
 use std::ops::{Mul, Neg, Shr, Sub};
 
-use super::execution_helpers::{checked_binary, checked_binary_when_signed, ExecutionAction};
+use super::execution_helpers::{checked_binary_when_signed, ExecutionAction};
 use super::Comparison;
 use super::{Immediate, Sign};
 use crate::memory::FloatType;
 
 checked_binary_when_signed!(checked_add, wrapping_add, checked_add);
 checked_binary_when_signed!(checked_sub, wrapping_sub, checked_sub);
-checked_binary!(checked_mul);
-checked_binary!(checked_div);
-checked_binary!(checked_rem);
 
 /// Tests if (`int1` `cmp` `int2`) is true
 /// `int1` and `int2` are treated as signed integers
@@ -1104,7 +1101,7 @@ impl Instruction {
             }
             I::SelectOnZero(Some(fmt), cmp, (fd, fs, ft)) => {
                 mem.history.push_u64(mem.cop1_reg[fd.id]);
-                if (cmp == Comparison::Ne) ^ (mem.cop1_reg[fd.id] & 1 == 0) {
+                if (cmp == Comparison::Ne) ^ (mem.cop1_reg[ft.id] & 1 == 0) {
                     if fmt == FloatType::Single {
                         mem.cop1_reg[fd.id] = mem.cop1_reg[fs.id] as u32 as u64;
                     } else {
@@ -1273,7 +1270,7 @@ impl Instruction {
             I::Wait => {
                 return Ok(ExecutionAction::Wait);
             }
-            I::WritePGPR((rd, rt)) => {
+            I::WritePGPR(..) => {
                 return Err(RuntimeException::ReservedInstruction);
             }
             I::WordSwapHalfwords((rd, rt)) => {

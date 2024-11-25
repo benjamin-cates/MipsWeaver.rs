@@ -128,20 +128,4 @@ macro_rules! checked_binary_when_signed {
     };
 }
 
-macro_rules! checked_binary {
-    ($fn_name:ident) => {
-        fn $fn_name(sign: Sign, num1: u32, num2: u32) -> Result<u32, RuntimeException> {
-            Ok(match sign {
-                Sign::Unsigned => num1
-                    .$fn_name(num2)
-                    .ok_or(RuntimeException::IntegerOverflow)?,
-                Sign::Signed => (num1 as i32)
-                    .$fn_name(num2 as i32)
-                    .ok_or(RuntimeException::IntegerOverflow)? as u32,
-            })
-        }
-    };
-}
-
-pub(crate) use checked_binary;
 pub(crate) use checked_binary_when_signed;

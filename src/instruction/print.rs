@@ -309,12 +309,12 @@ impl Display for Instruction {
             I::MoveFromCop(Processor::Cop(x), (rt, rd, Imm(sel))) if sel != 0 && x == 0 => {
                 w!(f, "mfc{x} {rt}, {rd}, {sel}")
             }
-            I::MoveFromCop(Processor::Cop(x), (rt, rd, Imm(sel))) => w!(f, "mfc{x} {rt}, {rd}"),
+            I::MoveFromCop(Processor::Cop(x), (rt, rd, Imm(..))) => w!(f, "mfc{x} {rt}, {rd}"),
             I::MoveFromCop(..) => unreachable!(),
             I::MoveFromHiCop(Processor::Cop(x), (rt, rd, Imm(sel))) if sel != 0 && x == 0 => {
                 w!(f, "mfhc{x} {rt}, {rd}, {sel}")
             }
-            I::MoveFromHiCop(Processor::Cop(x), (rt, rd, Imm(sel))) => w!(f, "mfhc{x} {rt}, {rd}"),
+            I::MoveFromHiCop(Processor::Cop(x), (rt, rd, Imm(..))) => w!(f, "mfhc{x} {rt}, {rd}"),
             I::MoveFromHiCop(..) => unreachable!(),
             I::MoveFromHi(rd) => w!(f, "mfhi {rd}"),
             I::MoveFromLo(rd) => w!(f, "mflo {rd}"),
@@ -338,12 +338,12 @@ impl Display for Instruction {
             I::MoveToCop(Processor::Cop(x), (rt, rd, Imm(sel))) if sel != 0 && x == 0 => {
                 w!(f, "mtc{x} {rt}, {rd}, {sel}")
             }
-            I::MoveToCop(Processor::Cop(x), (rt, rd, Imm(sel))) => w!(f, "mtc{x} {rt}, {rd}"),
+            I::MoveToCop(Processor::Cop(x), (rt, rd, Imm(..))) => w!(f, "mtc{x} {rt}, {rd}"),
             I::MoveToCop(..) => unreachable!(),
             I::MoveToHiCop(Processor::Cop(x), (rt, rd, Imm(sel))) if sel != 0 && x == 0 => {
                 w!(f, "mthc{x} {rt}, {rd}, {sel}")
             }
-            I::MoveToHiCop(Processor::Cop(x), (rt, rd, Imm(sel))) => w!(f, "mthc{x} {rt}, {rd}"),
+            I::MoveToHiCop(Processor::Cop(x), (rt, rd, Imm(..))) => w!(f, "mthc{x} {rt}, {rd}"),
             I::MoveToHiCop(..) => unreachable!(),
             I::MoveToHi(rd) => w!(f, "mthi {rd}"),
             I::MoveToLo(rd) => w!(f, "mtlo {rd}"),
@@ -414,7 +414,7 @@ impl Display for Instruction {
             I::StoreWordRight((rt, ref sum_addr)) => w!(f, "swr {rt}, {sum_addr}"),
             I::Sync(Imm(stype)) => w!(f, "sync {stype}"),
             I::SyncInstructionWrites(ref sum_addr) => w!(f, "synci {sum_addr}"),
-            I::Syscall(Imm(code)) => w!(f, "syscall"),
+            I::Syscall(Imm(..)) => w!(f, "syscall"),
             I::Trap(sign, cmp, (rs, rt)) => w!(f, "t{cmp}{sign} {rs}, {rt}"),
             I::TrapImmediate(sign, cmp, (rs, Imm(imm))) => w!(f, "t{cmp}i{sign} {rs}, {imm}"),
             I::TLBInvalidate => w!(f, "tlbinv"),
