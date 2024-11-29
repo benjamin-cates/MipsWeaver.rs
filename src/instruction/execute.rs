@@ -666,34 +666,36 @@ impl Instruction {
             I::MultiplyAdd(Sign::Signed, (rs, rt)) => {
                 mem.history.push(mem.hi);
                 mem.history.push(mem.lo);
-                let cur = ((mem.hi as u64) << 32 + mem.lo as u64) as i64;
-                let res = cur.wrapping_add((mem.reg(rs.id) as i32 as i64).wrapping_mul(mem.reg(rt.id) as i32 as i64));
-                mem.hi = (res >> 32) as u32;
-                mem.lo = (res & 0xFFFFFFFF) as u32;
+                let cur = mem.get_hilo() as i64;
+                let res = cur.wrapping_add(
+                    (mem.reg(rs.id) as i32 as i64).wrapping_mul(mem.reg(rt.id) as i32 as i64),
+                );
+                mem.set_hilo(res as u64);
             }
             I::MultiplyAdd(Sign::Unsigned, (rs, rt)) => {
                 mem.history.push(mem.hi);
                 mem.history.push(mem.lo);
-                let cur = (mem.hi as u64) << 32 + mem.lo as u64;
-                let res = cur.wrapping_add((mem.reg(rs.id) as u64).wrapping_mul(mem.reg(rt.id) as u64));
-                mem.hi = (res >> 32) as u32;
-                mem.lo = (res & 0xFFFFFFFF) as u32;
+                let cur = mem.get_hilo();
+                let res =
+                    cur.wrapping_add((mem.reg(rs.id) as u64).wrapping_mul(mem.reg(rt.id) as u64));
+                mem.set_hilo(res);
             }
             I::MultiplySub(Sign::Signed, (rs, rt)) => {
                 mem.history.push(mem.hi);
                 mem.history.push(mem.lo);
-                let cur = ((mem.hi as u64) << 32 + mem.lo as u64) as i64;
-                let res = cur.wrapping_sub((mem.reg(rs.id) as i32 as i64).wrapping_mul(mem.reg(rt.id) as i32 as i64));
-                mem.hi = (res >> 32) as u32;
-                mem.lo = (res & 0xFFFFFFFF) as u32;
+                let cur = mem.get_hilo() as i64;
+                let res = cur.wrapping_sub(
+                    (mem.reg(rs.id) as i32 as i64).wrapping_mul(mem.reg(rt.id) as i32 as i64),
+                );
+                mem.set_hilo(res as u64);
             }
             I::MultiplySub(Sign::Unsigned, (rs, rt)) => {
                 mem.history.push(mem.hi);
                 mem.history.push(mem.lo);
-                let cur = (mem.hi as u64) << 32 + mem.lo as u64;
-                let res = cur.wrapping_sub((mem.reg(rs.id) as u64).wrapping_mul(mem.reg(rt.id) as u64));
-                mem.hi = (res >> 32) as u32;
-                mem.lo = (res & 0xFFFFFFFF) as u32;
+                let cur = mem.get_hilo();
+                let res =
+                    cur.wrapping_sub((mem.reg(rs.id) as u64).wrapping_mul(mem.reg(rt.id) as u64));
+                mem.set_hilo(res);
             }
             I::MultiplyAddFloat(fmt, negative, (fd, fr, fs, ft)) => {
                 if negative {
@@ -781,7 +783,7 @@ impl Instruction {
                 mem.lo = mem.reg(rs.id);
             }
             I::MoveFromCop(Cop(0), (rt, rd, Immediate(sel))) => {
-                    mem.history.push(mem.reg(rt.id));
+                mem.history.push(mem.reg(rt.id));
                 let reg = mem
                     .cop0
                     .get_register(&mem.cfg, rd.id, sel as usize)

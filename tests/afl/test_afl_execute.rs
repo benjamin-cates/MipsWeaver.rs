@@ -1,20 +1,18 @@
-extern crate mips_weaver;
-use afl::fuzz;
-use mips_weaver::{
-    config::Config,
-    instruction::Instruction,
-    instruction_generator,
-    memory::{linker::LinkerTask, Memory},
-};
+use mips_weaver::{config::Config, instruction::Instruction, instruction_generator, memory::{linker::LinkerTask, Memory}};
 
-fn main() {
-    let mut templates =
-        std::panic::AssertUnwindSafe(instruction_generator::instruction_template_list());
+
+#[test]
+fn test_afl_execute() {
+    let mut templates = std::panic::AssertUnwindSafe(instruction_generator::instruction_template_list());
     let template_num = templates.len();
+
+    for file in std::fs::read_dir("fuzz/out/execute/crashes").unwrap() {
+        let data_vec = std::fs::read(format!("fuzz/out/execute/crashes/{}",file.unwrap().file_name().into_string().unwrap())).unwrap();
+        let data: &[u8] = data_vec.as_ref();
     // Serialization and execution target
-    fuzz!(|data: &[u8]| {
         let mut mem = Memory::default();
         let num_inst = data.len() / 18;
+        let mut linker_tasks: Vec<LinkerTask> = vec![];
         for i in 0..num_inst {
             let inst_data = &data[(i * 18)..((i + 1) * 18)];
             let gen = templates
@@ -42,7 +40,6 @@ fn main() {
                 version,
                 ..Default::default()
             };
-            let mut linker_tasks: Vec<LinkerTask> = vec![];
             for inst in mem
                 .translate_pseudo_instruction(inst, &cfg)
                 .unwrap_or([
@@ -53,24 +50,17 @@ fn main() {
                 ])
                 .into_iter()
             {
-                inst.serialize(&cfg, 0x0040_0000, &mut linker_tasks);
+                inst.serialize(&cfg, 0x0040_0000+((mem.instructions.len()*4) as u32), &mut linker_tasks);
                 mem.instructions.push(inst);
             }
         }
-        mem.program_counter = 0x0040_0000;
-        let _ = mem.run();
-        while mem.undo() == Some(()) {}
-    });
-    // Parsing target
-    //fuzz!(|data: &[u8]| {
-    //    if let Ok(s) = std::str::from_utf8(data) {
-    //        if let Ok(mut mem) = mips_weaver::memory::Memory::default().init_from_code(s, &Config::default()) {
-    //            mem.program_counter = 0x0040_0000;
-    //            let _ = mem.run();
-    //            while let Some(_) = mem.undo() {
+        if let Ok(_) = mem.linker(linker_tasks) {
+            println!("{:?}",mem.instructions);
+            mem.program_counter = 0x0040_0000;
+            let _ = mem.run();
+            while mem.undo() == Some(()) {}
+        }
 
-    //            }
-    //        }
-    //    }
-    //});
+    }
+
 }

@@ -141,7 +141,9 @@ pub(crate) fn undo_syscall(mem: &mut Memory) -> Option<()> {
         11..=17 => {
             unimplemented!();
         }
-        _ => unreachable!()
+        _ => {
+            // Do nothing since a reserved exception signal was sent out
+        } 
     }
 
     Some(())

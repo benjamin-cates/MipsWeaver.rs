@@ -2,6 +2,15 @@ use crate::{err::RuntimeException, memory::Memory};
 
 use super::IntType;
 impl Memory {
+    /// Get the hi and lo registers as a fused 64 bit number
+    pub fn get_hilo(&self) -> u64 {
+        ((self.hi as u64) << 32) + (self.lo as u64)
+    }
+    /// Set the hi and lo registers from a fused 64 bit number
+    pub fn set_hilo(&mut self, num: u64) {
+        self.hi = (num >> 32) as u32;
+        self.lo = (num & 0xFFFF_FFFF) as u32;
+    }
     /// Reads an unaligned word from memory, checking if it is allowed according to the config
     fn unaligned_load_word(&self, address: u32) -> Result<u32, RuntimeException> {
         if !self.cfg.allow_unaligned() {
@@ -66,10 +75,10 @@ impl Memory {
         let addr = (address & 0xFF) as usize;
         // Write as little endian
         if let Some(arr) = self.mem_map.get_mut(&chunk_address) {
-            let old = arr[addr + 0] as u32 + ((arr[addr + 1] as u32)
-                << 8) + ((arr[addr + 2] as u32)
-                << 16) + ((arr[addr + 3] as u32)
-                << 24);
+            let old = arr[addr + 0] as u32
+                + ((arr[addr + 1] as u32) << 8)
+                + ((arr[addr + 2] as u32) << 16)
+                + ((arr[addr + 3] as u32) << 24);
             arr[addr + 0] = (value >> 0) as u8;
             arr[addr + 1] = (value >> 8) as u8;
             arr[addr + 2] = (value >> 16) as u8;
@@ -180,8 +189,10 @@ impl Memory {
         if address & 0b111 != 0 && !self.cfg.allow_unaligned() {
             return Err(RuntimeException::UnalignedReadWrite);
         }
-        Ok(((self.store_word(address + 4, (value >> 32) as u32)? as u64)
-            << 32) + self.store_word(address, value as u32)? as u64)
+        Ok(
+            ((self.store_word(address + 4, (value >> 32) as u32)? as u64) << 32)
+                + self.store_word(address, value as u32)? as u64,
+        )
     }
     /// Reads from memory an int type `it` and returns cast as `u64`.
     /// If the address is not 8-byte aligned and unaligned writes are not allowed, returns
