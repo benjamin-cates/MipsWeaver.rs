@@ -1,6 +1,5 @@
-use mips_weaver::{config::Config, memory::Memory};
+use mips_weaver::{config::Config, instruction_generator::random_instruction_iterator, memory::Memory};
 
-use super::instruction_iterator::generate_instruction_iterator;
 
 #[test]
 fn test_execution_no_crash() {
@@ -15,7 +14,7 @@ fn test_execution_no_crash() {
     mem.cop1_reg[4] = f64::NAN.to_bits() as u64;
     mem.program_counter = 0x0040_0000;
     let mut i = 0;
-    for (string, instruction, version) in generate_instruction_iterator(500) {
+    for (string, instruction, version) in random_instruction_iterator(500) {
         mem.cfg.version = version;
         i += 1;
         if i % 500 == 0 {

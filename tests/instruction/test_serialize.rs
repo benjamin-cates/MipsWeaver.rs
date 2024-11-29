@@ -1,10 +1,7 @@
 use mips_weaver::{
-    config::Config,
-    instruction::Instruction,
-    memory::{linker::LinkerTask, Memory},
+    config::Config, instruction::Instruction, instruction_generator::random_instruction_iterator, memory::{linker::LinkerTask, Memory}
 };
 
-use super::instruction_iterator::generate_instruction_iterator;
 fn ser(s: &str, cfg: &Config, linker_tasks: &mut Vec<LinkerTask>) -> u32 {
     Instruction::parse(s, cfg)
         .expect(s)
@@ -34,7 +31,7 @@ fn test_serialize_all() {
     let mem = Memory::default()
         .init_from_code(".text\nori $0, $0, 0\nori $0, $0, 0", &Config::default())
         .unwrap();
-    for (_str, instruction, version) in generate_instruction_iterator(512) {
+    for (_str, instruction, version) in random_instruction_iterator(512) {
         let cfg = Config {
             version,
             ..Default::default()
