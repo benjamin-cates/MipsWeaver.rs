@@ -32,7 +32,7 @@ pub(crate) fn bit_builder(sections: &[(u32, usize)]) -> u32 {
         bits <<= section.1;
         bits |= section.0;
         if cfg!(debug_assertions) {
-            assert!(section.0 < (1 << section.1));
+            assert!(section.0 < (1 << section.1), "{:?}", section);
             bit_count += section.1;
         }
     }

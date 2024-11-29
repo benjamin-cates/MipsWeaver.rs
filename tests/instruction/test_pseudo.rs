@@ -156,7 +156,7 @@ fn test_instruction_version() {
         ("eret", [true, true, true, true, true, true]),
         ("eretnc", [false, false, false, false, true, true]),
         ("evp $0", [false, false, false, false, false, true]),
-        ("ext $0, $0, 1, 0", [false, true, true, true, true, true]),
+        ("ext $0, $0, 2, 1", [false, true, true, true, true, true]),
         ("floor.l.s $f1, $f1", [false, true, true, true, true, true]),
         ("floor.w.s $f1, $f1", [true, true, true, true, true, true]),
         ("floor.l.d $f1, $f1", [false, true, true, true, true, true]),

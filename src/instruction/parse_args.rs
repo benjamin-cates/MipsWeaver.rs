@@ -61,6 +61,14 @@ impl FromStr for IndexedAddr {
     /// );
     /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() == 0 {
+            return Err(MIPSParseError {
+                err_type: ParseErrorType::InvalidIndexedAddr,
+                line_idx: None,
+                position: 0,
+                sequence: Some(s.to_string()),
+            });
+        }
         let left_paren = s.find("(");
         let right_paren = s.find(")");
         if right_paren != Some(s.len() - 1)
@@ -102,6 +110,14 @@ impl FromStr for SumAddress {
     type Err = MIPSParseError;
     /// Parses sum addresses
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() == 0 {
+            return Err(MIPSParseError {
+                err_type: ParseErrorType::InvalidLabel,
+                sequence: Some("".to_string()),
+                position: 0,
+                line_idx: None,
+            })
+        }
         let paren = s.find("(");
         let plus = s.find("+").or(s.find("-"));
         let (label, offset): (Option<String>, Option<Immediate>) =
@@ -188,12 +204,19 @@ impl FromStr for Immediate {
         } else {
             (s, false)
         };
-        let (s, radix) = match if s.len() > 2 { &s[0..2] } else { "" } {
-            "0d" => (&s[2..], 10),
-            "0b" => (&s[2..], 2),
-            "0x" => (&s[2..], 16),
-            "0o" => (&s[2..], 8),
-            _ => (s, 10),
+        let (s, radix) = if s.chars().count() >= 3 && s.as_bytes()[0] == b'0' {
+            let after = s.char_indices().nth(2).unwrap().0;
+            match s.chars().nth(1).unwrap() {
+                'd' => (&s[after..], 10),
+                'b' => (&s[after..], 2),
+                'x' => (&s[after..], 16),
+                'o' => (&s[after..], 8),
+                '0'..='9' => (s, 10),
+                _ => Err(err())?
+            }
+        }
+        else {
+            (s, 10)
         };
         if neg {
             Ok(Immediate(

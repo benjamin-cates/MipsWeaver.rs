@@ -58,8 +58,8 @@ impl FromStr for Comparison {
 impl FromStr for Sign {
     type Err = std::convert::Infallible;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s.as_bytes()[s.len() - 1] {
-            b'u' => Sign::Unsigned,
+        Ok(match s.as_bytes().last() {
+            Some(b'u') => Sign::Unsigned,
             _ => Sign::Signed,
         })
     }
@@ -71,7 +71,7 @@ pub(crate) fn trimmed_parse<R>(
 ) -> Result<R, MIPSParseError> {
     let trimmed = str.trim();
     let offset = if trimmed.len() > 0 {
-        str.find(&trimmed[0..1]).unwrap()
+        str.find(&[trimmed.chars().nth(0).unwrap()]).unwrap()
     } else {
         str.len()
     };
@@ -84,7 +84,7 @@ fn parse_instruction_helper(
     cfg: &Config,
 ) -> Result<Instruction, MIPSParseError> {
     use Register as Reg;
-    let ft: Result<FloatType, _> = name[(name.len().max(2) - 2)..].parse();
+    let ft: Result<FloatType, _> = name[name.char_indices().nth_back(1).unwrap_or((0,'0')).0..].parse();
     let sign: Sign = name.parse().unwrap();
     use Instruction as I;
     use Sign::Signed as S;
@@ -163,7 +163,7 @@ fn parse_instruction_helper(
             let comparison = name[1..3].parse()?;
             I::BranchCompactZeroLink(comparison, parse_two_args(args, (is_gpr, skip_val))?)
         }
-        "beq" | "blt" | "bgt" | "bne" | "bge" | "ble" | "beql" | "bnel" => {
+        "beq" | "bne" | "beql" | "bnel" => {
             let comparison = name[1..3].parse()?;
             I::Branch(
                 comparison,
@@ -396,10 +396,26 @@ fn parse_instruction_helper(
             I::DivFloat(ft.unwrap(), parse_three_args(args, (val, val, val))?)
         }
         "evp" => I::EnableVirtualProcessor(parse_one_arg(args, is_gpr)?),
-        "ext" => I::ExtractBits(parse_four_args(
-            args,
-            (is_gpr, is_gpr, valid_lit(U, 5), valid_lit_min_max(0, 32)),
-        )?),
+        //"ext" => I::ExtractBits(parse_four_args(
+        //    args,
+        //    (is_gpr, is_gpr, valid_lit(U, 5), valid_lit_min_max(0, 32)),
+        //)?),
+        "ext" => {
+            let parsed_args = parse_four_args(
+                args,
+                (is_gpr, is_gpr, valid_lit(U, 5), valid_lit_min_max(1, 32)),
+            )?;
+            let encoded_as = parsed_args.2 .0 + parsed_args.3 .0 - 1;
+            if encoded_as > 32 || encoded_as < 0 {
+                Err(MIPSParseError {
+                    err_type: ParseErrorType::LitBounds(0, 32 - parsed_args.2 .0),
+                    line_idx: None,
+                    position: 0,
+                    sequence: Some(args.to_owned()),
+                })?
+            }
+            I::ExtractBits(parsed_args)
+        }
         "floor.l.s" | "floor.l.d" | "floor.w.s" | "floor.w.d" => {
             let it = name[6..7].parse().unwrap();
             let int_size = match it {
@@ -420,7 +436,8 @@ fn parse_instruction_helper(
                 args,
                 (is_gpr, is_gpr, valid_lit(U, 5), valid_lit_min_max(0, 32)),
             )?;
-            if parsed_args.2 .0 + parsed_args.3 .0 - 1 > 32 {
+            let encoded_as = parsed_args.2 .0 + parsed_args.3 .0 - 1;
+            if encoded_as > 32 || encoded_as < 0 {
                 Err(MIPSParseError {
                     err_type: ParseErrorType::LitBounds(0, 32 - parsed_args.2 .0),
                     line_idx: None,
@@ -441,7 +458,7 @@ fn parse_instruction_helper(
             };
             I::JumpLinkRegister(hb, arguments)
         }
-        "jalx" => I::JumpLinkExchange(parse_one_arg(args, skip_val)?),
+        "jalx" => I::JumpLinkExchange(parse_one_arg(args, aligned_offset)?),
         "jialc" => I::JumpIndexedCompact(true, parse_two_args(args, (is_gpr, skip_val))?),
         "jic" => I::JumpIndexedCompact(false, parse_two_args(args, (is_gpr, skip_val))?),
         "jr" | "jr.hb" => {
@@ -562,9 +579,6 @@ fn parse_instruction_helper(
                 I::MoveFromCop(Processor::Cop(1), parsed_args)
             }
         }
-        "mfc2" | "mfhc2" => {
-            todo!()
-        }
         "mfhi" => I::MoveFromHi(parse_one_arg(args, is_gpr)?),
         "mflo" => I::MoveFromLo(parse_one_arg(args, is_gpr)?),
         "mov.s" | "mov.d" | "mov.ps" => {
@@ -622,9 +636,6 @@ fn parse_instruction_helper(
             } else {
                 I::MoveToCop(Processor::Cop(1), parsed_args)
             }
-        }
-        "mtc2" | "mthc2" => {
-            todo!()
         }
         "mthi" => I::MoveToHi(parse_one_arg(args, is_gpr)?),
         "mtlo" => I::MoveToLo(parse_one_arg(args, is_gpr)?),

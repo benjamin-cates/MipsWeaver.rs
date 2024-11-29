@@ -148,8 +148,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
             build!(
                 (31, 6),
                 reg1.enc(),
-                reg2.enc(),
-                dst.enc(),
+                reg2.enc(), dst.enc(),
                 (2, 3),
                 (imm as u32, 2),
                 (32, 6)
