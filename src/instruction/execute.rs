@@ -870,12 +870,12 @@ impl Instruction {
                     if sign == Sign::Signed {
                         mem.set_reg(
                             rd.id,
-                            ((mem.reg(rs.id) as i64 * mem.reg(rt.id) as i64) >> 32) as u64 as u32,
+                            ((mem.reg(rs.id) as i64).wrapping_mul(mem.reg(rt.id) as i64) >> 32) as u64 as u32,
                         );
                     } else {
                         mem.set_reg(
                             rd.id,
-                            ((mem.reg(rs.id) as u64 * mem.reg(rt.id) as u64) >> 32) as u32,
+                            ((mem.reg(rs.id) as u64).wrapping_mul(mem.reg(rt.id) as u64) >> 32) as u32,
                         );
                     }
                 } else {

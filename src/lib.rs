@@ -7,4 +7,5 @@ pub mod memory;
 pub mod register;
 pub mod syscall;
 mod util;
+pub mod io;
 pub mod instruction_generator;

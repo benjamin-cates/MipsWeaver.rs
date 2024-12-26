@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ExecutionHistory {
+pub struct ExecutionHistory {
     vec: VecDeque<u32>,
     jumps: VecDeque<(u32, u32)>,
 }

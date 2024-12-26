@@ -15,6 +15,7 @@ fn main() {
     fuzz!(|data: &[u8]| {
         let mut mem = Memory::default();
         let num_inst = data.len() / 18;
+        let mut linker_tasks: Vec<LinkerTask> = vec![];
         for i in 0..num_inst {
             let inst_data = &data[(i * 18)..((i + 1) * 18)];
             let gen = templates
@@ -42,7 +43,6 @@ fn main() {
                 version,
                 ..Default::default()
             };
-            let mut linker_tasks: Vec<LinkerTask> = vec![];
             for inst in mem
                 .translate_pseudo_instruction(inst, &cfg)
                 .unwrap_or([
@@ -57,9 +57,12 @@ fn main() {
                 mem.instructions.push(inst);
             }
         }
-        mem.program_counter = 0x0040_0000;
-        let _ = mem.run();
-        while mem.undo() == Some(()) {}
+        if let Ok(_) = mem.linker(linker_tasks) {
+            println!("{:?}",mem.instructions);
+            mem.program_counter = 0x0040_0000;
+            let _ = mem.run();
+            while mem.undo() == Some(()) {}
+        }
     });
     // Parsing target
     //fuzz!(|data: &[u8]| {

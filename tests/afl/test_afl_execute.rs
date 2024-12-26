@@ -55,9 +55,10 @@ fn test_afl_execute() {
             }
         }
         if let Ok(_) = mem.linker(linker_tasks) {
-            println!("{:?}",mem.instructions);
+            mem.instructions.iter().for_each(|inst| println!("{}", inst));
             mem.program_counter = 0x0040_0000;
             let _ = mem.run();
+            println!("{:?}",mem.history);
             while mem.undo() == Some(()) {}
         }
 

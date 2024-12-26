@@ -176,7 +176,7 @@ impl Memory {
         if address & 0b111 != 0 && !self.cfg.allow_unaligned() {
             return Err(RuntimeException::UnalignedReadWrite);
         }
-        Ok((self.load_word(address + 4)? as u64) << 32 + self.load_word(address)? as u64)
+        Ok(((self.load_word(address + 4)? as u64) << 32) + (self.load_word(address)? as u64))
     }
     /// Writes a doubleword (8-bytes) to memory
     /// If the address is not 8-byte aligned and unaligned writes are not allowed, returns

@@ -67,7 +67,7 @@ pub struct Memory {
     pub cop1_reg: [u64; 32],
     pub lo: u32,
     pub hi: u32,
-    pub(crate) history: ExecutionHistory,
+    pub history: ExecutionHistory,
     pub cfg: Config,
     pub instructions: Vec<Instruction>,
     pub cop1: FloatingPointControl,
