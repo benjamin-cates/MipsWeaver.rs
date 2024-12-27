@@ -1,54 +1,10 @@
-use std::{io, thread};
 use std::{
     collections::BTreeMap,
+    fmt::Debug,
     fs::File,
     io::{BufRead, Read, Seek, SeekFrom, Write},
+    sync::{Arc, Mutex},
 };
-
-pub trait FileSystem {
-    /// Opens a file and returns it's file descriptor
-    /// If the file does not exist (and is being read), this returns -1
-    fn open(&mut self, name: String, mode: FileMode) -> i32;
-
-    /// Closes a file.
-    fn close(&mut self, fd: i32);
-
-    /// Write to a file
-    fn write(&mut self, fd: i32, bytes: &[u8]);
-
-    /// Read bytes from a file, up to the length given
-    /// If the end of the file is reached, returns an empty vector
-    fn read_buffered(&mut self, fd: i32, length: usize) -> Vec<u8>;
-
-    /// Read line from a file.
-    /// If the end of the file is reached, returns an empty vector
-    fn read_line(&mut self, fd: i32) -> Vec<u8>;
-
-    /// Changes the position of the cursor in a file to a new position
-    /// Mostly used for do and undo
-    fn seek(&mut self, fd: i32, position: u64);
-
-    /// Returns the position of the cursor in a file.
-    /// Mostly used for do and undo
-    fn get_pos(&mut self, fd: i32) -> u64;
-
-    /// Returns the name of a file in the file descriptor
-    fn get_path(&mut self, fd: i32) -> String;
-
-    /// Prints a string to stdout
-    fn stdout_str(&mut self, output: &str);
-
-    /// Prints a sequence of bytes to stdout
-    fn stdout_bytes(&mut self, output: &[u8]);
-
-    /// Reads a line from stdin, pauses if no line is available
-    fn stdin_line(&mut self) -> Vec<u8>;
-
-    /// Reads buffered bytes from stdin, up to the length specified
-    /// And stops on a newline
-    /// Equivalent to fgets in C
-    fn stdin_bytes_buffered(&mut self, length: usize) -> Vec<u8>;
-}
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum FileMode {
@@ -57,11 +13,27 @@ pub enum FileMode {
     Append,
 }
 
-pub struct DefaultFileSystem {
-    file_descriptors: BTreeMap<i32, (String, FileMode, File)>,
+#[derive(Debug, Clone, Default)]
+pub struct StandardIoSystem {
+    pub file_descriptors: BTreeMap<i32, (String, FileMode, Arc<Mutex<File>>)>,
+}
+impl PartialEq for StandardIoSystem {
+    fn eq(&self, other: &Self) -> bool {
+        self.file_descriptors.len() == other.file_descriptors.len()
+            && self
+                .file_descriptors
+                .iter()
+                .zip(other.file_descriptors.iter())
+                .all(
+                    |((fd1, (str1, mode1, file1)), (fd2, (str2, mode2, file2)))| {
+                        str1 == str2 && fd1 == fd2 && mode1 == mode2 && Arc::ptr_eq(file1, file2)
+                    },
+                )
+    }
 }
 
-impl FileSystem for DefaultFileSystem {
+
+impl StandardIoSystem {
     fn open(&mut self, path: String, mode: FileMode) -> i32 {
         let assigned_fd = self
             .file_descriptors
@@ -80,7 +52,7 @@ impl FileSystem for DefaultFileSystem {
         match file {
             Ok(file) => {
                 self.file_descriptors
-                    .insert(assigned_fd, (path, mode, file));
+                    .insert(assigned_fd, (path, mode, Arc::new(Mutex::new(file))));
                 assigned_fd
             }
             Err(_) => -1,
@@ -97,7 +69,7 @@ impl FileSystem for DefaultFileSystem {
                 if *mode == FileMode::Read {
                     return;
                 }
-                let _ = file.write(bytes);
+                let _ = file.lock().unwrap().write(bytes);
             }
             None => {
                 if fd == 1 {
@@ -106,7 +78,6 @@ impl FileSystem for DefaultFileSystem {
                 if fd == 2 {
                     let _ = std::io::stderr().write(bytes);
                 }
-
             }
         }
     }
@@ -117,7 +88,7 @@ impl FileSystem for DefaultFileSystem {
                     return vec![];
                 }
                 let mut output = vec![0; length];
-                match file.read(&mut output) {
+                match file.lock().unwrap().read(&mut output) {
                     Ok(num_read) => {
                         output.resize(num_read, 0);
                         output
@@ -143,11 +114,12 @@ impl FileSystem for DefaultFileSystem {
                     return vec![];
                 }
                 let mut line: Vec<u8> = vec![];
-                let num_read = std::io::BufReader::new(&mut *file).read_until(0xA, &mut line);
+                let mut lock = file.lock().unwrap();
+                let num_read = std::io::BufReader::new(&mut *lock).read_until(0xA, &mut line);
                 match num_read {
-                    Ok(num_read) => {
-                        let cur_position = file.stream_position().unwrap_or(0);
-                        let _ = file.seek(SeekFrom::Start(cur_position + line.len() as u64));
+                    Ok(_num_read) => {
+                        let cur_position = lock.stream_position().unwrap_or(0);
+                        let _ = lock.seek(SeekFrom::Start(cur_position + line.len() as u64));
                         line
                     }
                     Err(_) => {
@@ -167,7 +139,7 @@ impl FileSystem for DefaultFileSystem {
     fn seek(&mut self, fd: i32, position: u64) {
         match self.file_descriptors.get_mut(&fd) {
             Some((_path, _mode, file)) => {
-                let _ = file.seek(SeekFrom::Start(position));
+                let _ = file.lock().unwrap().seek(SeekFrom::Start(position));
             }
             None => {}
         }
@@ -175,7 +147,7 @@ impl FileSystem for DefaultFileSystem {
 
     fn get_pos(&mut self, fd: i32) -> u64 {
         match self.file_descriptors.get_mut(&fd) {
-            Some((_path, _mode, file)) => file.stream_position().unwrap_or(0),
+            Some((_path, _mode, file)) => file.lock().unwrap().stream_position().unwrap_or(0),
             None => 0,
         }
     }
@@ -204,26 +176,23 @@ impl FileSystem for DefaultFileSystem {
         }
         buf
     }
-    fn stdout_str(&mut self, output: &str) {
-        println!("{}",output);
-    }
     fn stdout_bytes(&mut self, output: &[u8]) {
         let _ = std::io::stdout().write(output);
     }
 }
 
-pub struct VirtualFileSystem {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VirtualIoSystem {
     pub files: BTreeMap<String, Vec<u8>>,
     pub file_descriptors: BTreeMap<i32, (String, FileMode, u64)>,
     pub cwd: Vec<String>,
     pub stdin_cursor: usize,
     pub stdin: Vec<u8>,
     pub stdout: Vec<u8>,
-    pub stderr: Vec<u8>
-
+    pub stderr: Vec<u8>,
 }
 
-impl Default for VirtualFileSystem {
+impl Default for VirtualIoSystem {
     fn default() -> Self {
         Self {
             cwd: vec![],
@@ -237,7 +206,7 @@ impl Default for VirtualFileSystem {
     }
 }
 
-impl VirtualFileSystem {
+impl VirtualIoSystem {
     fn make_absolute_path(&self, mut path: &str) -> Option<String> {
         let mut out = self.cwd.clone();
         while path.starts_with("../") {
@@ -249,7 +218,7 @@ impl VirtualFileSystem {
     }
 }
 
-impl FileSystem for VirtualFileSystem {
+impl VirtualIoSystem {
     fn open(&mut self, path: String, mode: FileMode) -> i32 {
         let assigned_fd = self
             .file_descriptors
@@ -276,6 +245,9 @@ impl FileSystem for VirtualFileSystem {
         let _ = self.file_descriptors.remove(&fd);
     }
 
+    fn stdout_bytes(&mut self, output: &[u8]) {
+        self.stdout.extend_from_slice(output);
+    }
     fn write(&mut self, fd: i32, bytes: &[u8]) {
         match self.file_descriptors.get_mut(&fd) {
             Some((abs_path, mode, cursor)) => {
@@ -395,7 +367,6 @@ impl FileSystem for VirtualFileSystem {
             self.stdin_cursor += 1;
         }
         output_vec
-        
     }
     fn stdin_line(&mut self) -> Vec<u8> {
         let mut output_vec = vec![];
@@ -410,5 +381,101 @@ impl FileSystem for VirtualFileSystem {
             self.stdin_cursor += 1;
         }
         output_vec
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum IoSystem {
+    Standard(StandardIoSystem),
+    Virtual(VirtualIoSystem),
+}
+
+impl IoSystem {
+
+    /// Closes a file.
+    pub fn close(&mut self, fd: i32) {
+        match self {
+            Self::Standard(s) => s.close(fd),
+            Self::Virtual(v) => v.close(fd),
+        }
+    }
+    /// Returns the name of a file in the file descriptor
+    pub fn get_path(&mut self, fd: i32) -> String {
+        match self {
+            Self::Standard(s) => s.get_path(fd),
+            Self::Virtual(v) => v.get_path(fd),
+        }
+    }
+    /// Returns the position of the cursor in a file.
+    /// Mostly used for do and undo
+    pub fn get_pos(&mut self, fd: i32) -> u64 {
+        match self {
+            Self::Standard(s) => s.get_pos(fd),
+            Self::Virtual(v) => v.get_pos(fd),
+        }
+    }
+    /// Opens a file and returns it's file descriptor
+    /// If the file does not exist (and is being read), this returns -1
+    pub fn open(&mut self, name: String, mode: FileMode) -> i32 {
+        match self {
+            Self::Standard(s) => s.open(name, mode),
+            Self::Virtual(v) => v.open(name, mode),
+        }
+    }
+    /// Read bytes from a file, up to the length given
+    /// If the end of the file is reached, returns an empty vector
+    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Vec<u8> {
+        match self {
+            Self::Standard(s) => s.read_buffered(fd, length),
+            Self::Virtual(v) => v.read_buffered(fd, length),
+        }
+    }
+    /// Read line from a file.
+    /// If the end of the file is reached, returns an empty vector
+    pub fn read_line(&mut self, fd: i32) -> Vec<u8> {
+        match self {
+            Self::Standard(s) => s.read_line(fd),
+            Self::Virtual(v) => v.read_line(fd),
+        }
+    }
+    /// Changes the position of the cursor in a file to a new position
+    /// Mostly used for do and undo
+    pub fn seek(&mut self, fd: i32, position: u64) {
+        match self {
+            Self::Standard(s) => s.seek(fd, position),
+            Self::Virtual(v) => v.seek(fd, position),
+        }
+    }
+
+    /// Reads buffered bytes from stdin, up to the length specified
+    /// And stops on a newline
+    /// Equivalent to fgets in C
+    pub fn stdin_bytes_buffered(&mut self, length: usize) -> Vec<u8> {
+        match self {
+            Self::Standard(s) => s.stdin_bytes_buffered(length),
+            Self::Virtual(v) => v.stdin_bytes_buffered(length),
+        }
+    }
+    /// Reads a line from stdin, pauses if no line is available
+    pub fn stdin_line(&mut self) -> Vec<u8> {
+        match self {
+            Self::Standard(s) => s.stdin_line(),
+            Self::Virtual(v) => v.stdin_line(),
+        }
+    }
+    /// Prints a sequence of bytes to stdout
+    pub fn stdout_bytes(&mut self, output: &[u8]) {
+        match self {
+            Self::Standard(s) => s.stdout_bytes(output),
+            Self::Virtual(v) => v.stdout_bytes(output),
+        }
+    }
+    /// Write bytes to the file
+    pub fn write(&mut self, fd: i32, bytes: &[u8]) {
+        match self {
+            Self::Standard(s) => s.write(fd, bytes),
+            Self::Virtual(v) => v.write(fd, bytes),
+        }
+        
     }
 }
