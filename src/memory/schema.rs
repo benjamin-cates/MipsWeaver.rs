@@ -7,10 +7,9 @@ use crate::{
     config::Config,
     cop0::Cop0,
     cop1::FloatingPointControl,
-    instruction::Instruction,
+    instruction::Instruction, 
+    io::IoSystem,
 };
-use crate::io_abstraction::{IoSystem, StandardIoSystem};
-
 use super::ExecutionHistory;
 
 #[derive(Clone, Debug)]
@@ -104,8 +103,9 @@ impl Default for Memory {
             labels: HashMap::new(),
             cop0: Cop0::default(),
             cop1: FloatingPointControl::default(),
-            io_system: IoSystem::Standard(StandardIoSystem::default()),
+            io_system: IoSystem::Standard(Default::default()),
         };
+
         // Global pointer initialization
         out.registers[28] = 0x1000_8000;
         // Stack pointer initialization

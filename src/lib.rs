@@ -4,7 +4,7 @@ pub mod cop1;
 pub mod err;
 pub mod instruction;
 pub mod instruction_generator;
-pub mod io_abstraction;
+pub mod io;
 pub mod memory;
 pub mod register;
 pub mod syscall;
