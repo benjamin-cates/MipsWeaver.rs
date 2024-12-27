@@ -1,17 +1,26 @@
-use std::{collections::HashMap, ops::{Deref, DerefMut}};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
 
-use crate::{config::Config, cop0::Cop0, cop1::FloatingPointControl, instruction::Instruction};
+use crate::{
+    config::Config,
+    cop0::Cop0,
+    cop1::FloatingPointControl,
+    instruction::Instruction,
+};
+use crate::io_abstraction::{IoSystem, StandardIoSystem};
 
 use super::ExecutionHistory;
 
 #[derive(Clone, Debug)]
 pub struct VirtualMemory {
-    inner: HashMap<u32, [u8; 256]>
+    inner: HashMap<u32, [u8; 256]>,
 }
 impl VirtualMemory {
     fn new() -> Self {
         VirtualMemory {
-            inner: HashMap::new()
+            inner: HashMap::new(),
         }
     }
 }
@@ -33,7 +42,7 @@ impl PartialEq for VirtualMemory {
         for (key, buf) in self.inner.iter() {
             match other.inner.get(key) {
                 Some(val) => {
-                    if val != buf{
+                    if val != buf {
                         return false;
                     }
                 }
@@ -46,7 +55,7 @@ impl PartialEq for VirtualMemory {
         }
         for (key, buf) in other.iter() {
             match self.inner.get(key) {
-                Some(_) => {},
+                Some(_) => {}
                 None => {
                     if buf != &[0; 256] {
                         return false;
@@ -72,6 +81,7 @@ pub struct Memory {
     pub instructions: Vec<Instruction>,
     pub cop1: FloatingPointControl,
     pub cop0: Cop0,
+    pub io_system: IoSystem,
 }
 impl Memory {
     pub fn is_kernel(&self) -> bool {
@@ -94,6 +104,7 @@ impl Default for Memory {
             labels: HashMap::new(),
             cop0: Cop0::default(),
             cop1: FloatingPointControl::default(),
+            io_system: IoSystem::Standard(StandardIoSystem::default()),
         };
         // Global pointer initialization
         out.registers[28] = 0x1000_8000;

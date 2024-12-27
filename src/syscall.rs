@@ -12,12 +12,12 @@ fn syscall4(mem: &mut Memory) -> Result<(), RuntimeException> {
         bytes.push(byte);
         address += 1;
     }
-    mem.stdout_bytes(&bytes);
+    mem.io_system.stdout_bytes(&bytes);
     Ok(())
 }
 
 fn syscall5(mem: &mut Memory) -> Result<(), RuntimeException> {
-    let val = mem.stdin_line()?.parse().unwrap_or(0);
+    let val = String::from_utf8(mem.io_system.stdin_line()).map(|v| v.parse().unwrap_or(0)).unwrap_or(0);
     // Replace with the saved discriminant on undo
     mem.set_reg(2, val);
     Ok(())
@@ -25,7 +25,7 @@ fn syscall5(mem: &mut Memory) -> Result<(), RuntimeException> {
 
 
 fn syscall6(mem: &mut Memory) -> Result<(), RuntimeException> {
-    let val = mem.stdin_line()?.parse().unwrap_or(0.0f32);
+    let val = String::from_utf8(mem.io_system.stdin_line()).map(|v| v.parse().unwrap_or(0.0f32)).unwrap_or(0.0f32);
     mem.history.push_u64(mem.cop1_reg[0]);
     mem.set_f32(0, val);
     Ok(())
@@ -33,7 +33,7 @@ fn syscall6(mem: &mut Memory) -> Result<(), RuntimeException> {
 
 
 fn syscall7(mem: &mut Memory) -> Result<(), RuntimeException> {
-    let val = mem.stdin_line()?.parse().unwrap_or(0.0f64);
+    let val = String::from_utf8(mem.io_system.stdin_line()).map(|v| v.parse().unwrap_or(0.0f64)).unwrap_or(0.0f64);
     mem.history.push_u64(mem.cop1_reg[0]);
     mem.set_f64(0, val);
     Ok(())
@@ -45,7 +45,7 @@ fn syscall8(mem: &mut Memory, num_written: &mut u32) -> Result<(), RuntimeExcept
     if len == 0 {
         return Ok(());
     }
-    let bytes = mem.stdin_bytes_buffered((len - 1) as usize)?;
+    let bytes = mem.io_system.stdin_bytes_buffered((len - 1) as usize);
     for (i, byte) in bytes.iter().enumerate() {
         let byte = mem.store_byte(address + i as u32, *byte)?;
         mem.history.push(byte as u32);
@@ -58,7 +58,7 @@ fn syscall8(mem: &mut Memory, num_written: &mut u32) -> Result<(), RuntimeExcept
 }
 fn syscall12(mem: &mut Memory) -> Result<(), RuntimeException> {
     mem.history.push(mem.reg(2));
-    let byte = mem.stdin_bytes_buffered(1)?[0] as u32;
+    let byte = mem.io_system.stdin_bytes_buffered(1)[0] as u32;
     mem.set_reg(2, byte);
     Ok(())
 }
@@ -70,17 +70,17 @@ pub(crate) fn syscall(mem: &mut Memory) -> Result<(), RuntimeException> {
     let out = match discriminant {
         // Print integer in $a0
         1 => {
-            mem.stdout_str(format!("{}", mem.reg(4)).as_str());
+            mem.io_system.stdout_bytes(format!("{}", mem.reg(4)).as_bytes());
             Ok(())
         }
         // Print float in $f12
         2 => {
-            mem.stdout_str(format!("{}", mem.get_f32(12)).as_str());
+            mem.io_system.stdout_bytes(format!("{}", mem.get_f32(12)).as_bytes());
             Ok(())
         }
         // Print double in $f12
         3 => {
-            mem.stdout_str(format!("{}", mem.get_f64(12)).as_str());
+            mem.io_system.stdout_bytes(format!("{}", mem.get_f64(12)).as_bytes());
             Ok(())
         }
         // Print string at address in $a0 and terminating with zero
@@ -120,7 +120,7 @@ pub(crate) fn syscall(mem: &mut Memory) -> Result<(), RuntimeException> {
         }
         // Print byte in low order bits of $a0
         11 => {
-            mem.stdout_bytes(&[(mem.reg(4) & 0xFF) as u8]);
+            mem.io_system.stdout_bytes(&[(mem.reg(4) & 0xFF) as u8]);
             Ok(())
         }
         // Read byte into $v0

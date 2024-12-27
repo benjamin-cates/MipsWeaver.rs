@@ -2,7 +2,6 @@ mod address;
 pub mod compile;
 pub mod execute;
 mod history;
-pub(crate) mod io;
 pub mod linker;
 mod pseudo_instruction;
 mod rw;
