@@ -27,11 +27,11 @@ fn main() -> std::io::Result<()> {
     let clone = mem.clone();
     mem.run().unwrap();
     println!("{:?}", mem.history);
-    for _ in 0..env::args().nth(1).unwrap().parse::<usize>().unwrap() {
-        if mem.undo().is_none() {
-            break;
-        }
-    }
+    //for _ in 0..env::args().nth(1).unwrap().parse::<usize>().unwrap() {
+    //    if mem.undo().is_none() {
+    //        break;
+    //    }
+    //}
     assert_eq!(mem, clone);
     Ok(())
 }

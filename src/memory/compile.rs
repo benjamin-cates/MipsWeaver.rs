@@ -238,7 +238,7 @@ fn parse_string_segment(
             if char == b'"' {
                 str_start = None;
                 if data_mode == DataMode::AsciiZ {
-                    let _ = mem.store_byte(*ptr, char);
+                    let _ = mem.store_byte(*ptr, 0);
                     *ptr += 1;
                 }
                 continue;

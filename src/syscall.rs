@@ -1,4 +1,4 @@
-use crate::{err::RuntimeException, memory::Memory};
+use crate::{err::RuntimeException, io_abstraction::FileMode, memory::Memory};
 
 
 fn syscall4(mem: &mut Memory) -> Result<(), RuntimeException> {
@@ -63,6 +63,72 @@ fn syscall12(mem: &mut Memory) -> Result<(), RuntimeException> {
     Ok(())
 }
 
+fn syscall13(mem: &mut Memory) -> Result<(), RuntimeException> {
+    let mut file_name: Vec<u8> = vec![];
+    let mut file_pointer = mem.reg(4);
+    loop {
+        let byte = mem.load_byte(file_pointer)?;
+        if byte == 0 {
+            break;
+        }
+        file_name.push(byte);
+        file_pointer += 1;
+    }
+    // Read "flags" argument
+    let mode = match mem.reg(5) {
+        0 => FileMode::Read,
+        1 => FileMode::Write,
+        9 => FileMode::Append,
+        _ => return Err(RuntimeException::ReservedInstruction),
+    };
+    println!("Opening file {:?} with mode {:?}", std::str::from_utf8(file_name.as_slice()), mode);
+    let fd =  mem.io_system.open(String::from_utf8(file_name).ok().ok_or(RuntimeException::ReservedInstruction)?,mode);
+    // Set $v0 to file descriptor
+    mem.set_reg(2,fd as u32);
+    Ok(())
+}
+
+fn syscall14(mem: &mut Memory, num_written: &mut u32) -> Result<(), RuntimeException> {
+    let fd = mem.reg(4);
+    let address = mem.reg(5);
+    let max_chars = mem.reg(6);
+    let bytes = match mem.io_system.read_buffered(fd as i32, max_chars as usize) {
+        Ok(bytes) => bytes,
+        Err(()) => {
+            *num_written = -1i32 as u32;
+            return Ok(());
+        }
+    };
+    for (i, byte) in bytes.iter().enumerate() {
+        let byte = mem.store_byte(address + i as u32, *byte)?;
+        mem.history.push(byte as u32);
+        *num_written += 1;
+    }
+    Ok(())
+}
+
+fn syscall15(mem: &mut Memory) -> Result<(), RuntimeException> {
+    let fd = mem.reg(4);
+    let address = mem.reg(5);
+    let num_chars = mem.reg(6);
+    let mut bytes: Vec<u8> = vec![];
+    for i in 0..num_chars {
+        bytes.push(mem.load_byte(address + i)?);
+    }
+    match mem.io_system.write(fd as i32, bytes.as_slice()) {
+        Ok(num_written) => {
+            mem.history.push(mem.reg(2));
+            mem.set_reg(2, num_written as u32);
+            Ok(())
+        }
+        Err(()) => {
+            mem.history.push(mem.reg(2));
+            mem.set_reg(2, -1i32 as u32);
+            Ok(())
+        }
+    }
+}
+
 /// Executes a system call
 pub(crate) fn syscall(mem: &mut Memory) -> Result<(), RuntimeException> {
     // Get v0 register
@@ -115,8 +181,7 @@ pub(crate) fn syscall(mem: &mut Memory) -> Result<(), RuntimeException> {
 
         // Exit
         10 => {
-            // Todo!
-            Ok(())
+            Err(RuntimeException::Exit(0))
         }
         // Print byte in low order bits of $a0
         11 => {
@@ -129,28 +194,27 @@ pub(crate) fn syscall(mem: &mut Memory) -> Result<(), RuntimeException> {
         }
         // Open file descriptor
         13 => {
-            // Todo!
-            Ok(())
+            syscall13(mem)
         }
         // Read from file
         14 => {
-            // Todo!
-            Ok(())
+            let mut num_written = 0;
+            let out = syscall14(mem, &mut num_written);
+            mem.set_reg(2, num_written);
+            out
         }
         // Write to file
         15 => {
-            // Todo!
-            Ok(())
+            syscall15(mem)
         }
         // Close file
         16 => {
-            // Todo!
+            mem.io_system.close(mem.reg(4) as i32);
             Ok(())
         }
         // Terminate with code
         17 => {
-            // Todo!
-            Ok(())
+            Err(RuntimeException::Exit(mem.reg(4) as i32))
         }
         _ => {
             Err(RuntimeException::ReservedInstruction)
@@ -164,13 +228,15 @@ pub(crate) fn undo_syscall(mem: &mut Memory) -> Option<()> {
     let discriminant = mem.history.pop()?;
     mem.set_reg(2, discriminant);
     match discriminant {
-        1..=4 | 11 => {
-            // Unprint?
+        1..=4 => {
+            // Undo print, unimplemented
         }
         5 => {
-            // Unread?
+            // Undo read integer
+            // $v0 restored by the discriminant above
         }
         6 | 7 => {
+            // Undo read floating point type
             mem.cop1_reg[0] = mem.history.pop_u64()?;
         }
         8 => {
@@ -181,7 +247,7 @@ pub(crate) fn undo_syscall(mem: &mut Memory) -> Option<()> {
             while ptr != base_addr {
                 ptr -= 1;
                 let val = mem.history.pop()?;
-                mem.store_byte(ptr, val as u8).expect(format!("{:x} {:x} {:x}",ptr, base_addr, val).as_str());
+                mem.store_byte(ptr, val as u8).unwrap();
             }
         }
         9 => {
@@ -190,8 +256,38 @@ pub(crate) fn undo_syscall(mem: &mut Memory) -> Option<()> {
         10 => {
             // Undo exit (do nothing)
         }
-        11..=17 => {
-            // Unimplemented!
+        11 => {
+            // Undo print, unimplemented
+        }
+        12 => {
+            // Undo read character
+            // $v0 restored by the discriminant above
+        }
+        13 => {
+            // Undo open file
+            // $v0 restored by the discriminant above
+        }
+        14 => {
+            // Undo read from file
+            let base_addr = mem.reg(4);
+            let len = mem.history.pop()?;
+            let mut ptr = base_addr + len;
+            while ptr != base_addr {
+                ptr -= 1;
+                let val = mem.history.pop()?;
+                mem.store_byte(ptr, val as u8).unwrap();
+            }
+        }
+        15 => {
+            // Write to file
+            return None;
+        }
+        16 => {
+            // Close file
+            return None;
+        }
+        17 => {
+            // Undo exit (do nothing)
         }
         _ => {
             // Do nothing since a reserved exception signal was sent out

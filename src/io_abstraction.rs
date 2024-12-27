@@ -69,46 +69,49 @@ impl StandardIoSystem {
         let _ = self.file_descriptors.remove(&fd);
     }
 
-    pub fn write(&mut self, fd: i32, bytes: &[u8]) {
+    pub fn write(&mut self, fd: i32, bytes: &[u8]) -> Result<usize, ()> {
         match self.file_descriptors.get_mut(&fd) {
             Some((_path, mode, file)) => {
                 if *mode == FileMode::Read {
-                    return;
+                    return Err(());
                 }
-                let _ = file.lock().unwrap().write(bytes);
+                file.lock().unwrap().write(bytes).ok().ok_or(())
             }
             None => {
                 if fd == 1 {
-                    let _ = std::io::stdout().write(bytes);
+                    std::io::stdout().write(bytes).ok().ok_or(())
                 }
-                if fd == 2 {
-                    let _ = std::io::stderr().write(bytes);
+                else if fd == 2 {
+                    std::io::stderr().write(bytes).ok().ok_or(())
+                }
+                else {
+                    Err(())
                 }
             }
         }
     }
-    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Vec<u8> {
+    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Result<Vec<u8>,()> {
         match self.file_descriptors.get_mut(&fd) {
             Some((_path, mode, file)) => {
                 if *mode != FileMode::Read {
-                    return vec![];
+                    return Err(());
                 }
                 let mut output = vec![0; length];
                 match file.lock().unwrap().read(&mut output) {
                     Ok(num_read) => {
                         output.resize(num_read, 0);
-                        output
+                        Ok(output)
                     }
                     Err(_) => {
-                        vec![]
+                        Err(())
                     }
                 }
             }
             None => {
                 if fd == 0 {
-                    return self.stdin_bytes_buffered(length);
+                    return Ok(self.stdin_bytes_buffered(length));
                 }
-                vec![]
+                Err(())
             }
         }
     }
@@ -254,11 +257,11 @@ impl VirtualIoSystem {
     pub fn stdout_bytes(&mut self, output: &[u8]) {
         self.stdout.extend_from_slice(output);
     }
-    pub fn write(&mut self, fd: i32, bytes: &[u8]) {
+    pub fn write(&mut self, fd: i32, bytes: &[u8]) -> Result<usize, ()> {
         match self.file_descriptors.get_mut(&fd) {
             Some((abs_path, mode, cursor)) => {
                 if *mode == FileMode::Read {
-                    return;
+                    return Err(());
                 }
                 let file = self.files.get_mut(abs_path).unwrap();
                 let end = *cursor as usize + bytes.len();
@@ -266,23 +269,27 @@ impl VirtualIoSystem {
                     .splice((*cursor as usize)..end, bytes.iter().cloned())
                     .collect::<Vec<u8>>();
                 *file = new_file;
+                return Ok(bytes.len());
             }
             None => {
                 if fd == 1 {
                     self.stdout.extend_from_slice(bytes);
+                    return Ok(bytes.len());
                 }
                 if fd == 2 {
                     self.stdout.extend_from_slice(bytes);
+                    return Ok(bytes.len());
                 }
+                return Err(())
             }
         }
     }
 
-    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Vec<u8> {
+    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Result<Vec<u8>,()> {
         match self.file_descriptors.get_mut(&fd) {
             Some((abs_path, mode, cursor)) => {
                 if *mode != FileMode::Read {
-                    return vec![];
+                    return Err(());
                 }
                 let file = self.files.get_mut(abs_path).unwrap();
                 let mut output = vec![];
@@ -296,13 +303,13 @@ impl VirtualIoSystem {
                         break;
                     }
                 }
-                output
+                Ok(output)
             }
             None => {
                 if fd == 0 {
-                    return self.stdin_bytes_buffered(length);
+                    return Ok(self.stdin_bytes_buffered(length));
                 }
-                vec![]
+                Err(())
             }
         }
     }
@@ -423,7 +430,7 @@ impl IOSystem {
     }
     /// Read bytes from a file, up to the length given
     /// If the end of the file is reached, returns an empty vector
-    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Vec<u8> {
+    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Result<Vec<u8>,()> {
         match self {
             Self::Standard(s) => s.read_buffered(fd, length),
             Self::Virtual(v) => v.read_buffered(fd, length),
@@ -469,8 +476,8 @@ impl IOSystem {
             Self::Virtual(v) => v.stdout_bytes(output),
         }
     }
-    /// Write bytes to the file
-    pub fn write(&mut self, fd: i32, bytes: &[u8]) {
+    /// Write bytes to the file. Returns number of bytes written on success or Err(()) if the file descriptor is invalid.
+    pub fn write(&mut self, fd: i32, bytes: &[u8]) -> Result<usize, ()> {
         match self {
             Self::Standard(s) => s.write(fd, bytes),
             Self::Virtual(v) => v.write(fd, bytes),

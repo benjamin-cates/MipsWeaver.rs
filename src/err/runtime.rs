@@ -29,4 +29,6 @@ pub enum RuntimeException {
     KernelMem,
     /// Break instruction executed.
     Break,
+    /// Exit with code
+    Exit(i32),
 }
