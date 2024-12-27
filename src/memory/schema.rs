@@ -3,14 +3,11 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::{
-    config::Config,
-    cop0::Cop0,
-    cop1::FloatingPointControl,
-    instruction::Instruction, 
-    io::IoSystem,
-};
 use super::ExecutionHistory;
+use crate::{
+    config::Config, cop0::Cop0, cop1::FloatingPointControl, instruction::Instruction,
+    io_abstraction::IOSystem,
+};
 
 #[derive(Clone, Debug)]
 pub struct VirtualMemory {
@@ -80,7 +77,7 @@ pub struct Memory {
     pub instructions: Vec<Instruction>,
     pub cop1: FloatingPointControl,
     pub cop0: Cop0,
-    pub io_system: IoSystem,
+    pub io_system: IOSystem,
 }
 impl Memory {
     pub fn is_kernel(&self) -> bool {
@@ -103,7 +100,7 @@ impl Default for Memory {
             labels: HashMap::new(),
             cop0: Cop0::default(),
             cop1: FloatingPointControl::default(),
-            io_system: IoSystem::Standard(Default::default()),
+            io_system: IOSystem::Standard(Default::default()),
         };
 
         // Global pointer initialization

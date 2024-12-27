@@ -1,4 +1,4 @@
-use std::{env, io::{self, Read}};
+use std::{env, io::Read};
 
 use config::Config;
 use memory::Memory;
@@ -8,15 +8,16 @@ pub mod cop0;
 pub mod cop1;
 pub mod err;
 pub mod instruction;
+pub mod io_abstraction;
 pub mod memory;
 pub mod register;
 pub mod syscall;
 mod util;
 
-fn main() -> io::Result<()> {
+fn main() -> std::io::Result<()> {
 
     let mut buffer = Vec::<u8>::new();
-    io::stdin().read_to_end(&mut buffer)?;
+    std::io::stdin().read_to_end(&mut buffer)?;
     let str = String::from_utf8(buffer).unwrap();
     let cfg = Config::default();
     let mut mem = Memory::default()

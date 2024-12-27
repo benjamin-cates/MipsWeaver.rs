@@ -6,6 +6,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+#[derive(Clone, PartialEq, Debug)]
+pub enum IOSystem {
+    Standard(StandardIoSystem),
+    Virtual(VirtualIoSystem),
+}
+
+
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum FileMode {
     Read,
@@ -32,9 +39,8 @@ impl PartialEq for StandardIoSystem {
     }
 }
 
-
 impl StandardIoSystem {
-    fn open(&mut self, path: String, mode: FileMode) -> i32 {
+    pub fn open(&mut self, path: String, mode: FileMode) -> i32 {
         let assigned_fd = self
             .file_descriptors
             .last_entry()
@@ -59,11 +65,11 @@ impl StandardIoSystem {
         }
     }
 
-    fn close(&mut self, fd: i32) {
+    pub fn close(&mut self, fd: i32) {
         let _ = self.file_descriptors.remove(&fd);
     }
 
-    fn write(&mut self, fd: i32, bytes: &[u8]) {
+    pub fn write(&mut self, fd: i32, bytes: &[u8]) {
         match self.file_descriptors.get_mut(&fd) {
             Some((_path, mode, file)) => {
                 if *mode == FileMode::Read {
@@ -81,7 +87,7 @@ impl StandardIoSystem {
             }
         }
     }
-    fn read_buffered(&mut self, fd: i32, length: usize) -> Vec<u8> {
+    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Vec<u8> {
         match self.file_descriptors.get_mut(&fd) {
             Some((_path, mode, file)) => {
                 if *mode != FileMode::Read {
@@ -107,7 +113,7 @@ impl StandardIoSystem {
         }
     }
 
-    fn read_line(&mut self, fd: i32) -> Vec<u8> {
+    pub fn read_line(&mut self, fd: i32) -> Vec<u8> {
         match self.file_descriptors.get_mut(&fd) {
             Some((_path, mode, file)) => {
                 if *mode != FileMode::Read {
@@ -136,7 +142,7 @@ impl StandardIoSystem {
         }
     }
 
-    fn seek(&mut self, fd: i32, position: u64) {
+    pub fn seek(&mut self, fd: i32, position: u64) {
         match self.file_descriptors.get_mut(&fd) {
             Some((_path, _mode, file)) => {
                 let _ = file.lock().unwrap().seek(SeekFrom::Start(position));
@@ -145,24 +151,24 @@ impl StandardIoSystem {
         }
     }
 
-    fn get_pos(&mut self, fd: i32) -> u64 {
+    pub fn get_pos(&mut self, fd: i32) -> u64 {
         match self.file_descriptors.get_mut(&fd) {
             Some((_path, _mode, file)) => file.lock().unwrap().stream_position().unwrap_or(0),
             None => 0,
         }
     }
-    fn get_path(&mut self, fd: i32) -> String {
+    pub fn get_path(&mut self, fd: i32) -> String {
         match self.file_descriptors.get_mut(&fd) {
             Some((path, _mode, _)) => path.clone(),
             None => "".to_string(),
         }
     }
-    fn stdin_line(&mut self) -> Vec<u8> {
+    pub fn stdin_line(&mut self) -> Vec<u8> {
         let mut buf = String::new();
         let _ = std::io::stdin().read_line(&mut buf);
         buf.into()
     }
-    fn stdin_bytes_buffered(&mut self, length: usize) -> Vec<u8> {
+    pub fn stdin_bytes_buffered(&mut self, length: usize) -> Vec<u8> {
         let mut buf = vec![0; length];
         let mut buf_1 = [0u8];
         while std::io::stdin().read(&mut buf_1).is_ok() {
@@ -176,7 +182,7 @@ impl StandardIoSystem {
         }
         buf
     }
-    fn stdout_bytes(&mut self, output: &[u8]) {
+    pub fn stdout_bytes(&mut self, output: &[u8]) {
         let _ = std::io::stdout().write(output);
     }
 }
@@ -219,7 +225,7 @@ impl VirtualIoSystem {
 }
 
 impl VirtualIoSystem {
-    fn open(&mut self, path: String, mode: FileMode) -> i32 {
+    pub fn open(&mut self, path: String, mode: FileMode) -> i32 {
         let assigned_fd = self
             .file_descriptors
             .last_entry()
@@ -241,14 +247,14 @@ impl VirtualIoSystem {
         assigned_fd
     }
 
-    fn close(&mut self, fd: i32) {
+    pub fn close(&mut self, fd: i32) {
         let _ = self.file_descriptors.remove(&fd);
     }
 
-    fn stdout_bytes(&mut self, output: &[u8]) {
+    pub fn stdout_bytes(&mut self, output: &[u8]) {
         self.stdout.extend_from_slice(output);
     }
-    fn write(&mut self, fd: i32, bytes: &[u8]) {
+    pub fn write(&mut self, fd: i32, bytes: &[u8]) {
         match self.file_descriptors.get_mut(&fd) {
             Some((abs_path, mode, cursor)) => {
                 if *mode == FileMode::Read {
@@ -272,7 +278,7 @@ impl VirtualIoSystem {
         }
     }
 
-    fn read_buffered(&mut self, fd: i32, length: usize) -> Vec<u8> {
+    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Vec<u8> {
         match self.file_descriptors.get_mut(&fd) {
             Some((abs_path, mode, cursor)) => {
                 if *mode != FileMode::Read {
@@ -301,7 +307,7 @@ impl VirtualIoSystem {
         }
     }
 
-    fn read_line(&mut self, fd: i32) -> Vec<u8> {
+    pub fn read_line(&mut self, fd: i32) -> Vec<u8> {
         match self.file_descriptors.get_mut(&fd) {
             Some((abs_path, mode, cursor)) => {
                 if *mode != FileMode::Read {
@@ -330,7 +336,7 @@ impl VirtualIoSystem {
         }
     }
 
-    fn seek(&mut self, fd: i32, position: u64) {
+    pub fn seek(&mut self, fd: i32, position: u64) {
         match self.file_descriptors.get_mut(&fd) {
             Some((_path, _mode, cursor)) => {
                 *cursor = position;
@@ -339,19 +345,19 @@ impl VirtualIoSystem {
         }
     }
 
-    fn get_pos(&mut self, fd: i32) -> u64 {
+    pub fn get_pos(&mut self, fd: i32) -> u64 {
         match self.file_descriptors.get_mut(&fd) {
             Some((_path, _mode, cursor)) => *cursor,
             None => 0,
         }
     }
-    fn get_path(&mut self, fd: i32) -> String {
+    pub fn get_path(&mut self, fd: i32) -> String {
         match self.file_descriptors.get_mut(&fd) {
             Some((path, _, _)) => path.clone(),
             None => "".to_string(),
         }
     }
-    fn stdin_bytes_buffered(&mut self, length: usize) -> Vec<u8> {
+    pub fn stdin_bytes_buffered(&mut self, length: usize) -> Vec<u8> {
         let mut output_vec = vec![];
         loop {
             if output_vec.len() == length {
@@ -368,7 +374,7 @@ impl VirtualIoSystem {
         }
         output_vec
     }
-    fn stdin_line(&mut self) -> Vec<u8> {
+    pub fn stdin_line(&mut self) -> Vec<u8> {
         let mut output_vec = vec![];
         loop {
             while self.stdin.len() == self.stdin_cursor {
@@ -384,14 +390,7 @@ impl VirtualIoSystem {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub enum IoSystem {
-    Standard(StandardIoSystem),
-    Virtual(VirtualIoSystem),
-}
-
-impl IoSystem {
-
+impl IOSystem {
     /// Closes a file.
     pub fn close(&mut self, fd: i32) {
         match self {
@@ -476,6 +475,5 @@ impl IoSystem {
             Self::Standard(s) => s.write(fd, bytes),
             Self::Virtual(v) => v.write(fd, bytes),
         }
-        
     }
 }
