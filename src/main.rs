@@ -12,6 +12,7 @@ pub mod io_abstraction;
 pub mod memory;
 pub mod register;
 pub mod syscall;
+pub mod parse;
 mod util;
 
 fn main() -> std::io::Result<()> {
