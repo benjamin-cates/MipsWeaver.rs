@@ -1,5 +1,4 @@
 mod address;
-pub mod compile;
 pub mod execute;
 mod history;
 pub mod linker;

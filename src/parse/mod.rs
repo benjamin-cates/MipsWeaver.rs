@@ -1,6 +1,12 @@
-mod components;
-mod data;
+pub mod components;
 mod error;
-mod instruction;
-
 pub(crate) use error::ParseError;
+pub(crate) use error::ParseErrorType;
+pub use compile::program_parser;
+pub use instruction::instruction_parser;
+mod instruction;
+mod instruction_list;
+pub(crate) use instruction_list::INSTRUCTION_LIST;
+pub(crate) mod text_section;
+pub(crate) mod data_section;
+pub(crate) mod compile;

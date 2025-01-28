@@ -1,4 +1,3 @@
-mod test_arg_parse;
 mod test_arg_print;
 mod test_instruction_parse;
 mod test_instruction_print;

@@ -1,48 +1,17 @@
-use std::{collections::HashSet, ops::Range};
+use std::{collections::{BTreeSet}, ops::Range};
 
-use chumsky::{Error, Span};
+use chumsky::{Error};
 
 use crate::config::Version;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ErrSpan {
-    /// Range of the issue
-    range: Range<usize>,
-    /// File the range is in
-    context: String,
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParseError {
+    pub expected: BTreeSet<char>,
+    pub span: Range<usize>,
+    pub label: ParseErrorType,
+    pub found: Option<char>,
 }
 
-impl Span for ErrSpan {
-    type Context = String;
-    type Offset = usize;
-    fn new(context: Self::Context, range: Range<Self::Offset>) -> Self {
-        Self { range, context }
-    }
-    fn context(&self) -> Self::Context {
-        self.context.clone()
-    }
-    fn end(&self) -> Self::Offset {
-        self.range.end
-    }
-    fn start(&self) -> Self::Offset {
-        self.range.start
-    }
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct SingleParseError {
-    expected: HashSet<Option<char>>,
-    span: ErrSpan,
-    label: ParseErrorType,
-    found: Option<char>,
-}
-
-pub(crate) enum ParseError {
-    Single(SingleParseError),
-    Multi(Vec<SingleParseError>),
-}
-
-/// Cause of a [`MIPSParseError`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ParseErrorType {
     /// Instruction does not exist or does not exist in this version.
@@ -86,55 +55,40 @@ pub enum ParseErrorType {
     DirectiveInText,
     /// Indexed address is invalid.
     InvalidIndexedAddr,
-
+    /// Sum address is invalid
+    InvalidSumAddr,
+    /// Custom message
+    Custom(&'static str),
     /// Error unknown (equivalent to None)
     Unknown,
 }
 
-impl<'a> Error<char> for ParseError {
+impl Error<char> for ParseError {
     type Label = ParseErrorType;
-    type Span = ErrSpan;
+    type Span = Range<usize>;
     fn expected_input_found<Iter: IntoIterator<Item = Option<char>>>(
         span: Self::Span,
         expected: Iter,
         found: Option<char>,
     ) -> Self {
-        Self::Single(SingleParseError {
-            expected: expected.into_iter().collect(),
+        Self {
+            expected: expected.into_iter().filter_map(|v| v).collect(),
             found: found,
             span: span,
             label: ParseErrorType::Unknown,
-        })
+        }
     }
     fn merge(self, other: Self) -> Self {
-        ParseError::Multi(match (self, other) {
-            (ParseError::Multi(mut vec1), ParseError::Multi(vec2)) => {
-                vec1.extend(vec2);
-                vec1
-            }
-            (ParseError::Multi(mut vec1), ParseError::Single(err2)) => {
-                vec1.push(err2);
-                vec1
-            }
-            (ParseError::Single(err1), ParseError::Multi(mut vec2)) => {
-                vec2.push(err1);
-                vec2
-            }
-            (ParseError::Single(err1), ParseError::Single(err2)) => {
-                vec![err1, err2]
-            }
-        })
+        if self.label != ParseErrorType::Unknown {
+            self
+        }
+        else {
+            other
+        }
     }
     fn with_label(mut self, label: Self::Label) -> Self {
-        match &mut self {
-            Self::Single(ref mut val) => {
-                val.label = label;
-            }
-            Self::Multi(ref mut val) => {
-                for val in val.iter_mut() {
-                    val.label = label;
-                }
-            }
+        if self.label == Self::Label::Unknown {
+            self.label = label;
         }
         self
     }

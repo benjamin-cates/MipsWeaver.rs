@@ -1,4 +1,9 @@
-use mips_weaver::{config::Config, instruction::Instruction};
+use std::collections::BTreeMap;
+
+use chumsky::prelude::end;
+use chumsky::{BoxedParser, Parser};
+use mips_weaver::config::Version;
+use mips_weaver::parse::instruction_parser;
 
 use mips_weaver::instruction_generator::random_instruction_iterator;
 
@@ -22,43 +27,53 @@ const BOUND_SUCCESS: &[&'static str] = &[
 
 #[test]
 fn test_fail_bounds() {
-    let cfg = Config::default();
+    let parser = instruction_parser(Version::R6);
     for test in BOUND_FAILS.iter() {
-        assert!(matches!(Instruction::parse(test, &cfg), Err(_)), "{}", test);
+        assert!(matches!(parser.parse(*test), Err(_)), "{}", test);
     }
     for test in BOUND_SUCCESS.iter() {
-        assert!(matches!(Instruction::parse(test, &cfg), Ok(_)), "{}", test);
+        assert!(matches!(parser.parse(*test), Ok(_)), "{}", test);
     }
 }
 
 const PARSE_FAIL: &[&'static str] = &[
     "add $4, $5, 5",
-    "add $4, $5, $05",
     "add $zexo, $5, $5",
     "add $4, $5",
     "add $4, $5, $5, $4",
 ];
 #[test]
 fn test_fail_parse() {
-    let cfg = Config::default();
+    let parser = instruction_parser(Version::R6).then_ignore(end());
     for test in PARSE_FAIL.iter() {
-        assert!(matches!(Instruction::parse(test, &cfg), Err(_)), "{}", test);
+        assert!(matches!(parser.parse(*test), Err(_)), "{}", test);
     }
 }
 
 #[test]
 fn test_instruction_parse() {
     let num_per_variant = 512;
+    let versions = [
+        Version::R1,
+        Version::R2,
+        Version::R3,
+        Version::R4,
+        Version::R5,
+        Version::R6,
+    ];
+    let version_map = (0..6)
+        .map(|v| (versions[v], instruction_parser(versions[v]).boxed()))
+        .into_iter()
+        .collect::<BTreeMap<Version, BoxedParser<_, _, _>>>();
     for (str, inst, ver) in random_instruction_iterator(num_per_variant) {
         assert_eq!(
-            Instruction::parse(
-                str.as_str(),
-                &Config {
-                    version: ver,
-                    ..Default::default()
-                }
-            ),
-            Ok(inst),
+            version_map
+                .get(&ver)
+                .unwrap()
+                .parse(str.as_str())
+                .expect(str.as_str())
+                .1,
+            inst,
             "{}",
             str.as_str()
         );

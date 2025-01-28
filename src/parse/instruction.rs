@@ -1,34 +1,39 @@
-use std::rc::Rc;
+use std::{ops::Range, rc::Rc};
 
 use chumsky::{
-    prelude::{any, empty, just},
-    text::{ident, TextParser},
+    prelude::{empty, just, one_of},
     BoxedParser, Error, Parser,
 };
 
 use crate::{
-    config::{Config, Version},
+    config::Version,
     instruction::{Comparison, Immediate, Instruction, Likely, Sign},
     memory::{FloatType, IntType},
-    parse::components::{
-        aligned_offset_label_parser, float_register_parser, gpr_register_parser,
-        idx_address_parser, offset_label_parser, sum_address_parser,
+    parse::{
+        components::{
+            aligned_offset_label_parser, any_gpr_parser, idx_address_parser, offset_label_parser,
+            sum_address_parser,
+        },
+        error::ParseErrorType,
+        ParseError, INSTRUCTION_LIST,
     },
-    parse::data::integer_parser,
-    parse::error::{ErrSpan, ParseErrorType},
-    parse::ParseError,
     register::{Processor, Register},
 };
 
+use super::components::{any_float_reg_parser, integer_parser};
+
 fn no_args(maker: Instruction) -> BoxedParser<'static, char, Instruction, ParseError> {
-    empty().to(maker).boxed()
+    empty().to(maker).padded_by(just(' ').repeated()).boxed()
 }
 
 fn args_parser_1<A: 'static>(
     p_1: &Rc<dyn Parser<char, A, Error = ParseError> + 'static>,
     maker: impl Fn(A) -> Instruction + 'static,
 ) -> BoxedParser<'static, char, Instruction, ParseError> {
-    p_1.clone().padded().map(maker).boxed()
+    just(' ')
+        .ignore_then(p_1.clone().padded_by(just(' ').repeated()))
+        .map(maker)
+        .boxed()
 }
 
 fn args_parser_2<A: 'static, B: 'static>(
@@ -36,10 +41,13 @@ fn args_parser_2<A: 'static, B: 'static>(
     p_2: &Rc<dyn Parser<char, B, Error = ParseError> + 'static>,
     maker: impl Fn((A, B)) -> Instruction + 'static,
 ) -> BoxedParser<'static, char, Instruction, ParseError> {
-    p_1.clone()
-        .padded()
-        .then_ignore(just(' '))
-        .then(p_2.clone().padded())
+    just(' ')
+        .ignore_then(
+            p_1.clone()
+                .padded_by(just(' ').repeated())
+                .then_ignore(just(',')),
+        )
+        .then(p_2.clone().padded_by(just(' ').repeated()))
         .map(maker)
         .boxed()
 }
@@ -50,12 +58,18 @@ fn args_parser_3<A: 'static, B: 'static, C: 'static>(
     p_3: &Rc<dyn Parser<char, C, Error = ParseError> + 'static>,
     maker: impl Fn((A, B, C)) -> Instruction + 'static,
 ) -> BoxedParser<'static, char, Instruction, ParseError> {
-    p_1.clone()
-        .padded()
-        .then_ignore(just(' '))
-        .then(p_2.clone().padded())
-        .then_ignore(just(' '))
-        .then(p_3.clone().padded())
+    just(' ')
+        .ignore_then(
+            p_1.clone()
+                .padded_by(just(' ').repeated())
+                .then_ignore(just(',')),
+        )
+        .then(
+            p_2.clone()
+                .padded_by(just(' ').repeated())
+                .then_ignore(just(',')),
+        )
+        .then(p_3.clone().padded_by(just(' ').repeated()))
         .map(|((a, b), c)| (a, b, c))
         .map(maker)
         .boxed()
@@ -68,14 +82,23 @@ fn args_parser_4<A: 'static, B: 'static, C: 'static, D: 'static>(
     p_4: &Rc<dyn Parser<char, D, Error = ParseError> + 'static>,
     maker: impl Fn((A, B, C, D)) -> Instruction + 'static,
 ) -> BoxedParser<'static, char, Instruction, ParseError> {
-    p_1.clone()
-        .padded()
-        .then_ignore(just(' '))
-        .then(p_2.clone().padded())
-        .then_ignore(just(' '))
-        .then(p_3.clone().padded())
-        .then_ignore(just(' '))
-        .then(p_4.clone().padded())
+    just(' ')
+        .ignore_then(
+            p_1.clone()
+                .padded_by(just(' ').repeated())
+                .then_ignore(just(',')),
+        )
+        .then(
+            p_2.clone()
+                .padded_by(just(' ').repeated())
+                .then_ignore(just(',')),
+        )
+        .then(
+            p_3.clone()
+                .padded_by(just(' ').repeated())
+                .then_ignore(just(',')),
+        )
+        .then(p_4.clone().padded_by(just(' ').repeated()))
         .map(|(((a, b), c), d)| (a, b, c, d))
         .map(maker)
         .boxed()
@@ -91,7 +114,7 @@ fn lit_parser<'a>(sign: Sign, bits: usize) -> impl Parser<char, Immediate, Error
 }
 
 fn lit_parser_min_max<'a>(min: i64, max: i64) -> impl Parser<char, Immediate, Error = ParseError> {
-    integer_parser().validate(move |num, span: ErrSpan, emit| {
+    integer_parser().validate(move |num, span: Range<usize>, emit| {
         if num > max || num < min {
             emit(
                 ParseError::expected_input_found(span, std::iter::empty(), None)
@@ -103,7 +126,7 @@ fn lit_parser_min_max<'a>(min: i64, max: i64) -> impl Parser<char, Immediate, Er
 }
 
 fn valid_fpr_type(fpr_type: FloatType) -> impl Parser<char, Register, Error = ParseError> + Clone {
-    float_register_parser().validate(move |reg, span: ErrSpan, emit| {
+    any_float_reg_parser().validate(move |reg, span: Range<usize>, emit| {
         let fpr_type = fpr_type;
         let valid = match fpr_type {
             FloatType::Single => reg.is_float(),
@@ -120,10 +143,12 @@ fn valid_fpr_type(fpr_type: FloatType) -> impl Parser<char, Register, Error = Pa
     })
 }
 
-const INSTRUCTION_LIST: &[&'static str] = &["abs.d", "abs.ps", "abs.s"];
-
-fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = ParseError> + 'a {
-    let gpr = Rc::new(gpr_register_parser()) as Rc<dyn Parser<_, _, Error = ParseError>>;
+pub fn instruction_parser(
+    version: Version,
+) -> impl Parser<char, (Range<usize>, Instruction), Error = ParseError> {
+    let gpr = Rc::new(any_gpr_parser()) as Rc<dyn Parser<_, _, Error = ParseError>>;
+    let wrapped_gpr = Rc::new(any_gpr_parser().delimited_by(just('('), just(')')))
+        as Rc<dyn Parser<_, _, Error = ParseError>>;
     let fpr =
         Rc::new(valid_fpr_type(FloatType::Single)) as Rc<dyn Parser<_, _, Error = ParseError>>;
     let sum_addr = Rc::new(sum_address_parser()) as Rc<dyn Parser<_, _, Error = ParseError>>;
@@ -135,7 +160,7 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
     let lit_16_u = Rc::new(lit_parser(U, 16)) as Rc<dyn Parser<_, _, Error = ParseError>>;
     let lit_3_s = Rc::new(lit_parser(S, 3)) as Rc<dyn Parser<_, _, Error = ParseError>>;
     let lit_3_u = Rc::new(lit_parser(U, 3)) as Rc<dyn Parser<_, _, Error = ParseError>>;
-    let lit_5_u = Rc::new(lit_parser(U, 3)) as Rc<dyn Parser<_, _, Error = ParseError>>;
+    let lit_5_u = Rc::new(lit_parser(U, 5)) as Rc<dyn Parser<_, _, Error = ParseError>>;
     let lit_20_u = Rc::new(lit_parser(U, 20)) as Rc<dyn Parser<_, _, Error = ParseError>>;
 
     let offset_label = Rc::new(offset_label_parser()) as Rc<dyn Parser<_, _, Error = ParseError>>;
@@ -149,23 +174,23 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
     use Sign::Signed as S;
     use Sign::Unsigned as U;
 
-    let name_parser =
-        ident()
-            .then_ignore(just(' ').or_not())
-            .try_map(|s: String, span: ErrSpan| {
-                if INSTRUCTION_LIST.binary_search(&s.as_str()).is_ok() {
-                    Ok(s)
-                } else {
-                    Err(ParseError::expected_input_found(
-                        span,
-                        std::iter::empty(),
-                        None,
-                    ))
-                }
-            });
+    let name_parser = one_of(".abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123")
+        .repeated()
+        .at_least(1)
+        .collect()
+        .try_map(|s: String, span: Range<usize>| {
+            if INSTRUCTION_LIST.binary_search(&s.to_lowercase().as_str()).is_ok() {
+                Ok(s)
+            } else {
+                Err(
+                    ParseError::expected_input_found(span, std::iter::empty(), None)
+                        .with_label(ParseErrorType::InvalidInstruction),
+                )
+            }
+        });
 
     name_parser.then_with(move |name| {
-        let sign = if name.find("u").is_some() { U } else { S };
+        let sign: Sign = name.parse().unwrap();
         let ft = if name.ends_with(".s") {
             Single
         } else if name.ends_with(".d") {
@@ -174,7 +199,11 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
             PairedSingle
         };
         let zero = Register::new_gpr(0);
-        let cmp: Option<Cmp> = name[1..3].parse().ok();
+        let cmp: Option<Cmp> = if name.len() >= 3 {
+            name[1..3].parse().ok()
+        } else {
+            None
+        };
         match name.as_str() {
             "abs.s" | "abs.d" | "abs.ps" => {
                 args_parser_2(&fpr, &fpr, move |args| I::AbsFloat(ft, args))
@@ -182,7 +211,7 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
             "add" => args_parser_3(&gpr, &gpr, &gpr, |args| I::Add(S, args)),
             "addu" => args_parser_3(&gpr, &gpr, &gpr, |args| I::Add(U, args)),
             "addi" => args_parser_3(&gpr, &gpr, &lit_32_s, |args| I::AddImmediate(S, args)),
-            "addiu" => args_parser_3(&gpr, &gpr, &lit_32_s, |args| I::AddImmediate(U, args)),
+            "addiu" => args_parser_3(&gpr, &gpr, &lit_32_u, |args| I::AddImmediate(U, args)),
             "add.s" | "add.d" | "add.ps" => {
                 args_parser_3(&fpr, &fpr, &fpr, move |args| I::AddFloat(ft, args))
             }
@@ -259,7 +288,7 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
                 } else {
                     Likely::Normal
                 };
-                args_parser_2(&lit_3_s, &offset_label, move |args| {
+                args_parser_2(&lit_3_u, &offset_label, move |args| {
                     I::BranchCop(Processor::Cop(proc), truthy, likely, args)
                 })
                 .or(args_parser_1(&offset_label, move |args| {
@@ -287,15 +316,14 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
             "clz" => args_parser_2(&gpr, &gpr, I::CountLeadingZero),
             "crc32b" | "crc32h" | "crc32w" => {
                 let it = name[5..6].parse().unwrap();
-                gpr.clone()
-                    .padded()
-                    .then_ignore(just(' '))
-                    .then(gpr.clone().padded())
-                    .then_ignore(just(' '))
-                    .then(gpr.clone().padded())
-                    .map(|((a, b), c)| (a, b, c))
+                // Parse it to an and statement, then unwrap the args and check the first and last match
+                args_parser_3(&gpr, &gpr, &gpr, I::And)
+                    .map(|v| match v {
+                        I::And((a, b, c)) => (a, b, c),
+                        _ => panic!(),
+                    })
                     .try_map(|(a, b, c), span| {
-                        if a == c {
+                        if a != c {
                             Err(
                                 ParseError::expected_input_found(span, std::iter::empty(), None)
                                     .with_label(ParseErrorType::InvalidCommand),
@@ -309,15 +337,14 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
             }
             "crc32cb" | "crc32ch" | "crc32cw" => {
                 let it = name[6..7].parse().unwrap();
-                gpr.clone()
-                    .padded()
-                    .then_ignore(just(' '))
-                    .then(gpr.clone().padded())
-                    .then_ignore(just(' '))
-                    .then(gpr.clone().padded())
-                    .map(|((a, b), c)| (a, b, c))
+                // Parse it to an and statement, then unwrap the args and check the first and last match
+                args_parser_3(&gpr, &gpr, &gpr, I::And)
+                    .map(|v| match v {
+                        I::And((a, b, c)) => (a, b, c),
+                        _ => panic!(),
+                    })
                     .try_map(|(a, b, c), span| {
-                        if a == c {
+                        if a != c {
                             Err(
                                 ParseError::expected_input_found(span, std::iter::empty(), None)
                                     .with_label(ParseErrorType::InvalidCommand),
@@ -358,7 +385,7 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
                 .or(no_args(I::DisableInterrupts(zero)))
                 .boxed(),
             "div" | "divu" => {
-                if cfg.version == Version::R6 {
+                if version == Version::R6 {
                     args_parser_3(&gpr, &gpr, &gpr, move |args| I::DivR6(sign, args))
                 } else {
                     args_parser_2(&gpr, &gpr, move |args| I::DivOld(sign, args))
@@ -410,17 +437,17 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
                 &(Rc::new(lit_parser(U, 5)) as Rc<dyn Parser<_, _, Error = ParseError> + 'static>),
                 &(Rc::new(lit_parser_min_max(0, 32))
                     as Rc<dyn Parser<_, _, Error = ParseError> + 'static>),
-                I::ExtractBits,
+                I::InsertBits,
             )
             .try_map(|v, span| match v {
-                I::ExtractBits((a, b, c, d)) => {
+                I::InsertBits((a, b, c, d)) => {
                     if c.0 + d.0 - 1 > 32 || c.0 + d.0 - 1 < 0 {
                         Err(
                             ParseError::expected_input_found(span, std::iter::empty(), None)
                                 .with_label(ParseErrorType::LitBounds(0, 32 - c.0)),
                         )
                     } else {
-                        Ok(I::ExtractBits((a, b, c, d)))
+                        Ok(I::InsertBits((a, b, c, d)))
                     }
                 }
                 _ => unreachable!(),
@@ -469,11 +496,9 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
                 })
             }
             "ll" => args_parser_2(&gpr, &sum_addr, I::LoadLinkedWord),
-            "llwp" => {
-                todo!()
-            }
+            "llwp" => args_parser_3(&gpr, &gpr, &wrapped_gpr, I::LoadLinkedWordPaired),
             "lsa" => args_parser_4(&gpr, &gpr, &gpr, &lit_2_u, I::LoadScaledAddress),
-            "lui" => args_parser_2(&gpr, &lit_16_u, I::LoadUpperImmediate),
+            "lui" => args_parser_2(&gpr, &lit_32_s, I::LoadUpperImmediate),
             "lwl" => args_parser_2(&gpr, &sum_addr, I::LoadWordLeft),
             "lwr" => args_parser_2(&gpr, &sum_addr, I::LoadWordRight),
             "lwpc" => args_parser_2(&gpr, &lit_19_s, I::LoadWordPCRelative),
@@ -583,7 +608,7 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
             "mthi" => args_parser_1(&gpr, I::MoveToHi),
             "mtlo" => args_parser_1(&gpr, I::MoveToLo),
             "mul" => {
-                if cfg.version == Version::R6 {
+                if version == Version::R6 {
                     args_parser_3(&gpr, &gpr, &gpr, |args| I::MulR6(false, S, args))
                 } else {
                     args_parser_3(&gpr, &gpr, &gpr, |args| I::MulOld(args))
@@ -632,9 +657,7 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
                 args_parser_2(&gpr, &sum_addr, move |args| I::StoreInt(it, args))
             }
             "sc" => args_parser_2(&gpr, &sum_addr, I::StoreConditional),
-            "scwp" => {
-                todo!()
-            }
+            "scwp" => args_parser_3(&gpr, &gpr, &wrapped_gpr, I::StoreConditionalPairedWord),
             "sdbbp" => args_parser_1(&lit_20_u, I::SwDebugBreak),
             "swc2" | "sdc2" => {
                 let it = name[1..2].parse().unwrap();
@@ -711,8 +734,8 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
             "tlbinvf" => no_args(I::TLBInvalidateFlush),
             "tlbp" => no_args(I::TLBProbe),
             "tlbr" => no_args(I::TLBRead),
-            "tldwi" => no_args(I::TLBWrite),
-            "tldwr" => no_args(I::TLBWriteRandom),
+            "tlbwi" => no_args(I::TLBWrite),
+            "tlbwr" => no_args(I::TLBWriteRandom),
             "trunc.l.s" | "trunc.l.d" | "trunc.w.s" | "trunc.w.d" => {
                 let it = name[6..7].parse().unwrap();
                 args_parser_2(&fpr, &fpr, move |args| I::Trunc(it, ft, args))
@@ -724,20 +747,6 @@ fn inst_parser<'a>(cfg: &'a Config) -> impl Parser<char, Instruction, Error = Pa
             "xori" => args_parser_3(&gpr, &gpr, &lit_32_u, I::XorImmediate),
             _ => chumsky::primitive::empty().to(Instruction::Nop).boxed(),
         }
-        .padded()
-        .then_ignore(just(";").then_ignore(any().or_not()).or_not())
     })
-}
-
-#[cfg(test)]
-#[test]
-fn test_instructions_sorted() {
-    for i in 0..INSTRUCTION_LIST.len() - 1 {
-        assert!(
-            INSTRUCTION_LIST[i] < INSTRUCTION_LIST[i + 1],
-            "{} and {} are out of order",
-            INSTRUCTION_LIST[i],
-            INSTRUCTION_LIST[i + 1]
-        );
-    }
+    .map_with_span(|inst, span| (span, inst))
 }

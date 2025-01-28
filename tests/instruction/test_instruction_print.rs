@@ -1,4 +1,5 @@
-use mips_weaver::{config::Config, instruction::Instruction};
+use chumsky::Parser;
+use mips_weaver::{config::{Version}, parse::instruction_parser};
 
 #[test]
 fn test_instruction_print() {
@@ -16,14 +17,13 @@ fn test_instruction_print() {
         "addiupc $s0, 262143",
         "addiupc $s0, 0",
     ];
-    let cfg = Config {
-        version: mips_weaver::config::Version::R5,
-        ..Default::default()
-    };
+    let parser = instruction_parser(Version::R5);
     for case in matchers {
         assert_eq!(
             case,
-            format!("{}", Instruction::parse(case, &cfg).unwrap()).as_str()
+            format!("{}", parser.parse(case).expect(case).1).as_str(),
+            "{}",
+            case
         );
     }
 }

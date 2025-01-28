@@ -1,12 +1,8 @@
+use chumsky::{prelude::end, Parser};
 use mips_weaver::{
-    config::Config, instruction::Instruction, instruction_generator::random_instruction_iterator, memory::{linker::LinkerTask, Memory}
+    config::{Config, Version}, instruction::Instruction, instruction_generator::random_instruction_iterator, memory::{Memory}, parse::{instruction_parser, program_parser}
 };
 
-fn ser(s: &str, cfg: &Config, linker_tasks: &mut Vec<LinkerTask>) -> u32 {
-    Instruction::parse(s, cfg)
-        .expect(s)
-        .serialize(cfg, 0, linker_tasks)
-}
 fn bits(s: &str) -> u32 {
     let mut charcount = 0;
     let mut int = 0;
@@ -28,16 +24,15 @@ fn bits(s: &str) -> u32 {
 
 #[test]
 fn test_serialize_all() {
-    let mem = Memory::default()
-        .init_from_code(".text\nori $0, $0, 0\nori $0, $0, 0", &Config::default())
-        .unwrap();
+    let cfg = Config::default();
+    let parser = program_parser(&cfg);
+    let mem = parser.parse(".text\nori $0, $0, 0\nori $0, $0, 0").unwrap();
     for (_str, instruction, version) in random_instruction_iterator(512) {
         let cfg = Config {
             version,
             ..Default::default()
         };
-        let mut linker_tasks: Vec<LinkerTask> = vec![];
-        let translated = mem.translate_pseudo_instruction(instruction, &cfg);
+        let translated = mem.translate_pseudo_instruction(instruction, &(0..0), &cfg);
         if translated.is_err() {
             continue;
         }
@@ -50,7 +45,7 @@ fn test_serialize_all() {
             if inst == Instruction::Nop && i != 0 {
                 continue;
             }
-            inst.serialize(&cfg, 0x0400_0000, &mut linker_tasks);
+            inst.serialize(&cfg, 0x0400_0000, |_| {});
         }
     }
 }
@@ -705,18 +700,28 @@ fn test_serialize() {
         version: mips_weaver::config::Version::R6,
         ..Default::default()
     };
-    let mut lt: Vec<LinkerTask> = vec![];
+    let parser = instruction_parser(Version::R5).then_ignore(end());
     for test in SIMPLE_TESTS.iter() {
-        println!("{}", test.1);
-        assert_eq!(ser(test.1, &cfgr5, &mut lt), bits(test.0), "{}", test.1);
+        assert_eq!(parser.parse(test.1).expect(test.1).1.serialize(&cfgr5, 0, |_| {}), bits(test.0), "{}", test.1);
     }
+    let parser = instruction_parser(Version::R6);
     for test in SIMPLE_TESTS_R6.iter() {
-        assert_eq!(ser(test.1, &cfgr6, &mut lt), bits(test.0), "{}", test.1);
+        assert_eq!(parser.parse(test.1).expect(test.1).1.serialize(&cfgr6, 0, |_| {}), bits(test.0), "{}", test.1);
     }
+}
+    
+#[test]
+fn test_serialize_random() {
+    let cfgr5 = Config {
+        version: mips_weaver::config::Version::R5,
+        ..Default::default()
+    };
+    let parser = instruction_parser(Version::R5).then_ignore(end());
     let mem = Memory::default();
     for test in PSEUDO_TESTS {
+
         let insts = mem
-            .translate_pseudo_instruction(Instruction::parse(test.0, &cfgr5).expect(test.0), &cfgr5)
+            .translate_pseudo_instruction(parser.parse(test.0).expect(test.0).1, &(0..0), &cfgr5)
             .unwrap();
         let mut other_insts = [
             Instruction::Nop,
@@ -725,7 +730,7 @@ fn test_serialize() {
             Instruction::Nop,
         ];
         for (i, pseudo) in test.1.iter().enumerate() {
-            other_insts[i] = Instruction::parse(pseudo, &cfgr5).unwrap();
+            other_insts[i] = parser.parse(*pseudo).unwrap().1;
         }
         assert_eq!(insts, other_insts, "{}", test.0);
     }

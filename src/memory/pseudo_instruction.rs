@@ -1,31 +1,28 @@
+use std::ops::Range;
+
 use crate::{
-    config::{Config, Version},
-    err::{MIPSParseError, ParseErrorType},
-    instruction::{Immediate, Instruction, Sign},
-    register::{Processor, Register},
-    util::fits_bits,
+    config::{Config, Version}, parse::ParseErrorType, instruction::{Immediate, Instruction, Sign}, parse::{ParseError}, register::{Processor, Register}, util::fits_bits
 };
 
 use super::{Label, Memory, SumAddress};
 
+use chumsky::Error;
 use Instruction as I;
 
 impl Memory {
     fn sum_addr_handler(
         &self,
         offset_len: usize,
+        span: Range<usize>,
         sum_addr: &mut SumAddress,
-    ) -> Result<[Instruction; 4], MIPSParseError> {
+    ) -> Result<[Instruction; 4], ParseError> {
         // If there is a label, load it with ori and lui then calculate address
         if let Some(ref label) = sum_addr.label {
             let addr = match Label::Name(label.to_owned()).get_address(self) {
                 Some(val) => val,
-                None => Err(MIPSParseError {
-                    sequence: Some(label.clone()),
-                    position: 0,
-                    err_type: ParseErrorType::UndefinedLabel,
-                    line_idx: None,
-                })?,
+                None => Err(ParseError::expected_input_found(span.clone(), std::iter::empty(), None).with_label(
+                    ParseErrorType::UndefinedLabel
+                ))?
             };
             let ori = Instruction::OrImmediate((
                 Register::new_gpr(1),
@@ -98,7 +95,7 @@ fn overflow_immediate(
     sign: Sign,
     bits: usize,
     new_inst: Instruction,
-) -> Result<[Instruction; 4], MIPSParseError> {
+) -> Result<[Instruction; 4], ParseError> {
     if !fits_bits(imm, bits, sign) {
         let lui = Instruction::LoadUpperImmediate((
             Register::new_gpr(1),
@@ -135,9 +132,11 @@ impl Memory {
     pub fn translate_pseudo_instruction(
         &self,
         inst: Instruction,
+        span: &Range<usize>,
         cfg: &Config,
-    ) -> Result<[I; 4], MIPSParseError> {
+    ) -> Result<[I; 4], ParseError> {
         use Processor::Cop;
+        let span = span.clone();
         let at = Register::new_gpr(1);
         Ok(match inst {
             I::AddImmediate(s, (dst, src1, Imm(imm))) => {
@@ -147,11 +146,11 @@ impl Memory {
                 overflow_immediate(inst, imm, Sign::Unsigned, 16, I::And((dst, src1, at)))?
             }
             I::Cache((x, mut sum_addr)) => append_to_pseudo_list(
-                self.sum_addr_handler(16, &mut sum_addr)?,
+                self.sum_addr_handler(16, span, &mut sum_addr)?,
                 I::Cache((x, sum_addr)),
             ),
             I::LoadInt(s, it, (reg, mut sum_addr)) => append_to_pseudo_list(
-                self.sum_addr_handler(16, &mut sum_addr)?,
+                self.sum_addr_handler(16, span, &mut sum_addr)?,
                 I::LoadInt(s, it, (reg, sum_addr)),
             ),
             I::LoadCop(cop, it, (reg, mut sum_addr)) => append_to_pseudo_list(
@@ -161,6 +160,7 @@ impl Memory {
                     } else {
                         16
                     },
+                    span,
                     &mut sum_addr,
                 )?,
                 I::LoadCop(cop, it, (reg, sum_addr)),
@@ -168,6 +168,7 @@ impl Memory {
             I::LoadWordLeft((x, mut sum_addr)) => append_to_pseudo_list(
                 self.sum_addr_handler(
                     if cfg.version == Version::R6 { 9 } else { 16 },
+                    span,
                     &mut sum_addr,
                 )?,
                 I::LoadWordLeft((x, sum_addr)),
@@ -175,6 +176,7 @@ impl Memory {
             I::LoadWordRight((x, mut sum_addr)) => append_to_pseudo_list(
                 self.sum_addr_handler(
                     if cfg.version == Version::R6 { 9 } else { 16 },
+                    span,
                     &mut sum_addr,
                 )?,
                 I::LoadWordRight((x, sum_addr)),
@@ -182,6 +184,7 @@ impl Memory {
             I::LoadLinkedWord((x, mut sum_addr)) => append_to_pseudo_list(
                 self.sum_addr_handler(
                     if cfg.version == Version::R6 { 9 } else { 16 },
+                    span,
                     &mut sum_addr,
                 )?,
                 I::LoadLinkedWord((x, sum_addr)),
@@ -192,17 +195,19 @@ impl Memory {
             I::Pref((x, mut sum_addr)) => append_to_pseudo_list(
                 self.sum_addr_handler(
                     if cfg.version == Version::R6 { 9 } else { 16 },
+                    span,
                     &mut sum_addr,
                 )?,
                 I::Pref((x, sum_addr)),
             ),
             I::StoreInt(it, (reg, mut sum_addr)) => append_to_pseudo_list(
-                self.sum_addr_handler(16, &mut sum_addr)?,
+                self.sum_addr_handler(16, span, &mut sum_addr)?,
                 I::StoreInt(it, (reg, sum_addr)),
             ),
             I::StoreConditional((x, mut sum_addr)) => append_to_pseudo_list(
                 self.sum_addr_handler(
                     if cfg.version == Version::R6 { 9 } else { 16 },
+                    span,
                     &mut sum_addr,
                 )?,
                 I::LoadLinkedWord((x, sum_addr)),
@@ -214,6 +219,7 @@ impl Memory {
                     } else {
                         16
                     },
+                    span,
                     &mut sum_addr,
                 )?,
                 I::StoreCop(cop, it, (reg, sum_addr)),
@@ -222,15 +228,15 @@ impl Memory {
                 overflow_immediate(inst, imm, s, 16, I::SetOnLessThan(s, (dst, src1, at)))?
             }
             I::StoreWordLeft((x, mut sum_addr)) => append_to_pseudo_list(
-                self.sum_addr_handler(16, &mut sum_addr)?,
+                self.sum_addr_handler(16, span, &mut sum_addr)?,
                 I::StoreWordLeft((x, sum_addr)),
             ),
             I::StoreWordRight((x, mut sum_addr)) => append_to_pseudo_list(
-                self.sum_addr_handler(16, &mut sum_addr)?,
+                self.sum_addr_handler(16, span, &mut sum_addr)?,
                 I::StoreWordRight((x, sum_addr)),
             ),
             I::SyncInstructionWrites(mut sum_addr) => append_to_pseudo_list(
-                self.sum_addr_handler(16, &mut sum_addr)?,
+                self.sum_addr_handler(16, span, &mut sum_addr)?,
                 I::SyncInstructionWrites(sum_addr),
             ),
             I::TrapImmediate(s, cmp, (src1, Imm(imm))) => {

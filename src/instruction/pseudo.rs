@@ -1,11 +1,10 @@
 use crate::config::Config;
 use crate::config::Version;
-use crate::err::MIPSParseError;
-use crate::err::ParseErrorType;
 use crate::instruction::types::Likely;
 use crate::instruction::Comparison;
 use crate::instruction::Instruction;
 use crate::memory::IntType;
+use crate::parse::ParseErrorType;
 use crate::register::Processor;
 use crate::register::Register;
 
@@ -24,42 +23,27 @@ pub enum InstructionType {
     /// Pseudo instruction who may be serialized into more than one word.
     PseudoInst,
     /// Invalid instruction (wrong version or literal out of bounds).
-    Invalid(MIPSParseError),
+    Invalid(ParseErrorType),
 }
 
 impl InstructionType {
     fn cap_imm(self, imm: &Immediate, bits: usize) -> Self {
         if imm.0 >= 1i64 << bits {
-            InstructionType::Invalid(MIPSParseError {
-                sequence: None,
-                position: 0,
-                err_type: crate::err::ParseErrorType::LitBounds(0, (1i64 << bits) - 1),
-                line_idx: None,
-            })
+            InstructionType::Invalid(ParseErrorType::LitBounds(0, (1i64 << bits) - 1))
         } else {
             self
         }
     }
     fn min_v(self, cur_version: Version, version: Version) -> Self {
         if cur_version < version {
-            InstructionType::Invalid(MIPSParseError {
-                sequence: None,
-                position: 0,
-                err_type: ParseErrorType::MinVersion(version),
-                line_idx: None,
-            })
+            InstructionType::Invalid(ParseErrorType::MinVersion(version))
         } else {
             self
         }
     }
     fn max_v(self, cur_version: Version, version: Version) -> Self {
         if cur_version > version {
-            InstructionType::Invalid(MIPSParseError {
-                sequence: None,
-                position: 0,
-                err_type: ParseErrorType::Deprecated(version),
-                line_idx: None,
-            })
+            InstructionType::Invalid(ParseErrorType::Deprecated(version))
         } else {
             self
         }

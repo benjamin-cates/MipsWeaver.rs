@@ -1,7 +1,10 @@
-use mips_weaver::config::Config;
+use chumsky::Parser;
+use mips_weaver::{config::Config, parse::program_parser};
 
 #[test]
 fn test_afl_crashes() {
+    let cfg = Config::default();
+    let parser = program_parser(&cfg);
     if let Ok(dir) = std::fs::read_dir("fuzz/out/parse/crashes") {
         for file in dir {
             let data = std::fs::read(format!(
@@ -12,7 +15,7 @@ fn test_afl_crashes() {
             if let Ok(s) = std::str::from_utf8(data.as_ref()) {
                 println!("{:?}", s);
                 if let Ok(mut mem) =
-                    mips_weaver::memory::Memory::default().init_from_code(s, &Config::default())
+                    parser.parse(s)
                 {
                     mem.program_counter = 0x0040_0000;
                     let _ = mem.run();

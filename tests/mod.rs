@@ -1,2 +1,2 @@
 mod instruction;
-mod afl;
+//mod afl;

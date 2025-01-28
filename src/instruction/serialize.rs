@@ -1,9 +1,5 @@
 use crate::{
-    config::{Config, Version},
-    instruction::{types::Likely, Comparison, Immediate},
-    memory::{linker::LinkerTask, FloatType, IntType},
-    register::{Processor, Register},
-    util,
+    config::{Config, Version}, instruction::{types::Likely, Comparison, Immediate}, memory::{linker::LinkerTask, FloatType, IntType}, register::{Processor, Register}, util
 };
 
 use super::{Instruction, Label, Sign, SumAddress};
@@ -81,10 +77,10 @@ fn sum_addr_handler(
 }
 
 /// Return the offset of this label or add it to the list of linker tasks
-fn fill_label(lt: &mut Vec<LinkerTask>, pc: u32, offset: usize, len: usize, label: &Label) -> u32 {
+fn fill_label(mut emit: impl FnMut(LinkerTask), pc: u32, offset: usize, len: usize, label: &Label) -> u32 {
     match label {
         Label::Name(_) => {
-            lt.push(LinkerTask::new(pc, offset, len, label));
+            emit(LinkerTask::new(pc, offset, len, label));
             0
         }
         Label::Offset(offset) => *offset as u32 & ((1 << len) - 1) as u32,
@@ -92,10 +88,10 @@ fn fill_label(lt: &mut Vec<LinkerTask>, pc: u32, offset: usize, len: usize, labe
     }
 }
 /// Return 256 MB aligned jump location or push task to the linker
-fn fill_jump(lt: &mut Vec<LinkerTask>, pc: u32, offset: usize, len: usize, label: &Label) -> u32 {
+fn fill_jump(mut emit: impl FnMut(LinkerTask), pc: u32, offset: usize, len: usize, label: &Label) -> u32 {
     match label {
         Label::Name(_) => {
-            lt.push(LinkerTask::new_jump(pc, offset, len, label));
+            emit(LinkerTask::new_jump(pc, offset, len, label));
             0
         }
         Label::Offset(offset) => *offset as u32,
@@ -107,11 +103,11 @@ impl Instruction {
     /// Encode the instruction as a 4-byte sequence. Any unknown labels will be added to the list of linker tasks.
     /// If the operation cannot be encoded in a single instruction, encoding may be broken.
     /// If the instruction could possibly be a pseudo instruction, run it through [`crate::memory::Memory::translate_pseudo_instruction`] first.
-    pub fn serialize(&self, cfg: &Config, pc: u32, linker_tasks: &mut Vec<LinkerTask>) -> u32 {
-        serialize(&self, cfg, pc, linker_tasks)
+    pub fn serialize(&self, cfg: &Config, pc: u32, emit: impl FnMut(LinkerTask)) -> u32 {
+        serialize(&self, cfg, pc, emit)
     }
 }
-fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<LinkerTask>) -> u32 {
+fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerTask)) -> u32 {
     use Comparison as Cmp;
     use Immediate as Imm;
     use Instruction as I;
@@ -212,7 +208,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
                 (Cmp::Ne, Likely::True) => 0b010101,
                 _ => panic!(),
             };
-            let offset = fill_label(linker_tasks, pc, 16, 16, label);
+            let offset = fill_label(emit, pc, 16, 16, label);
             build!((sym, 6), reg1.enc(), reg2.enc(), (offset, 16))
         }
         I::BranchZero(cmp, likely, (reg, ref label))
@@ -242,19 +238,19 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
                 (Cmp::Lt, Likely::True) => 0b0010,
                 _ => panic!(),
             } | if link { 0b10000 } else { 0b00000 };
-            let offset = fill_label(linker_tasks, pc, 16, 16, label);
+            let offset = fill_label(emit, pc, 16, 16, label);
             build!((sym1, 6), reg.enc(), (sym2, 5), (offset, 16))
         }
         I::BranchCompactZero(cmp, (reg, ref label)) => {
             if cmp == Cmp::Eq {
-                let offset = fill_label(linker_tasks, pc, 11, 21, label);
+                let offset = fill_label(emit, pc, 11, 21, label);
                 return build!((0b110110, 6), reg.enc(), (offset, 21));
             }
             if cmp == Cmp::Ne {
-                let offset = fill_label(linker_tasks, pc, 11, 21, label);
+                let offset = fill_label(emit, pc, 11, 21, label);
                 return build!((0b111110, 6), reg.enc(), (offset, 21));
             }
-            let offset = fill_label(linker_tasks, pc, 16, 16, label);
+            let offset = fill_label(emit, pc, 16, 16, label);
             return match cmp {
                 Cmp::Ge => {
                     build!((0b010110, 6), reg.enc(), reg.enc(), (offset, 16))
@@ -274,12 +270,12 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
         I::BranchCompact(cmp, sign, (rs, rt, ref label)) => {
             // BC
             if cmp == Cmp::Eq && rs.id == 0 && rt.id == 0 {
-                let offset = fill_label(linker_tasks, pc, 6, 26, label);
+                let offset = fill_label(emit, pc, 6, 26, label);
                 return build!((0b110010, 6), (offset, 26));
             }
 
             // All others have last 16 bits as label
-            let offset = fill_label(linker_tasks, pc, 16, 16, label);
+            let offset = fill_label(emit, pc, 16, 16, label);
             if sign == U {
                 return match cmp {
                     Cmp::Ge => build!((0b000110, 6), rs.enc(), rt.enc(), (offset, 16)),
@@ -308,7 +304,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
             };
         }
         I::BranchCopZ(cop, eq, (reg, ref label)) => {
-            let offset = fill_label(linker_tasks, pc, 16, 16, label);
+            let offset = fill_label(emit, pc, 16, 16, label);
             build!(
                 (
                     if cop == Processor::Cop(2) {
@@ -324,7 +320,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
             )
         }
         I::BranchCop(cop, tr, likely, (imm, ref label)) => {
-            let offset = fill_label(linker_tasks, pc, 16, 16, label);
+            let offset = fill_label(emit, pc, 16, 16, label);
             build!(
                 (
                     if cop == Processor::Cop(2) {
@@ -342,11 +338,11 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
             )
         }
         I::BranchCompactLink(ref label) => {
-            let offset = fill_label(linker_tasks, pc, 6, 26, label);
+            let offset = fill_label(emit, pc, 6, 26, label);
             build!((0b111010, 6), (offset, 26))
         }
         I::BranchCompactZeroLink(cmp, (reg, ref label)) => {
-            let offset = fill_label(linker_tasks, pc, 16, 16, label);
+            let offset = fill_label(emit, pc, 16, 16, label);
             match cmp {
                 Cmp::Le => build!((0b000110, 6), (0, 5), reg.enc(), (offset, 16)),
                 Cmp::Ge => build!((0b000110, 6), reg.enc(), reg.enc(), (offset, 16)),
@@ -357,7 +353,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
             }
         }
         I::BranchOverflowCompact(overflow, (rs, rt, ref label)) => {
-            let offset = fill_label(linker_tasks, pc, 16, 16, label);
+            let offset = fill_label(emit, pc, 16, 16, label);
             let smaller = if rs.id < rt.id { rs.enc() } else { rt.enc() };
             let larger = if rs.id > rt.id { rs.enc() } else { rt.enc() };
             build!(
@@ -721,11 +717,11 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
             )
         }
         I::Jump(ref label) => {
-            let offset = fill_jump(linker_tasks, pc, 6, 26, label);
+            let offset = fill_jump(emit, pc, 6, 26, label);
             build!((0b000010, 6), (offset, 26))
         }
         I::JumpLink(ref label) => {
-            let offset = fill_jump(linker_tasks, pc, 6, 26, label);
+            let offset = fill_jump(emit, pc, 6, 26, label);
             build!((0b000011, 6), (offset, 26))
         }
         I::JumpLinkRegister(hb, (rd, rs)) => {
@@ -739,7 +735,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, linker_tasks: &mut Vec<L
             )
         }
         I::JumpLinkExchange(ref label) => {
-            let offset = fill_jump(linker_tasks, pc, 6, 26, label);
+            let offset = fill_jump(emit, pc, 6, 26, label);
             build!((0b011101, 6), (offset, 26))
         }
         I::JumpIndexedCompact(do_link, (reg, imm)) => {

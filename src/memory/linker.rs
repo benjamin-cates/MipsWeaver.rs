@@ -1,6 +1,10 @@
+use std::ops::Range;
+
+use chumsky::Error;
+
 use crate::{
-    err::{MIPSParseError, ParseErrorType},
     instruction::Sign,
+    parse::{ParseError, ParseErrorType},
     util::fits_bits,
 };
 
@@ -53,9 +57,9 @@ impl LinkerTask {
 }
 
 impl Memory {
-    pub fn linker(&mut self, tasks: Vec<LinkerTask>) -> Result<(), MIPSParseError> {
+    pub fn linker(&mut self, tasks: Vec<(Range<usize>, LinkerTask)>) -> Result<(), ParseError> {
         for task in tasks.into_iter() {
-            match task {
+            match task.1 {
                 LinkerTask::InsertLabel {
                     pc,
                     bit_len,
@@ -65,12 +69,14 @@ impl Memory {
                     let mut inst = self.load_word(pc).unwrap();
                     let addr = match label.get_address(self) {
                         Some(val) => val as i64,
-                        None => Err(MIPSParseError {
-                            sequence: Some(format!("{}", label)),
-                            position: 0,
-                            err_type: ParseErrorType::UndefinedLabel,
-                            line_idx: None,
-                        })?,
+                        None => {
+                            return Err(ParseError::expected_input_found(
+                                task.0,
+                                std::iter::empty(),
+                                None,
+                            )
+                            .with_label(ParseErrorType::UndefinedLabel));
+                        }
                     };
                     let offset = (addr - ((pc + 4) as i64)) / 4;
                     if !fits_bits(offset, bit_len, Sign::Signed) {
@@ -89,12 +95,14 @@ impl Memory {
                     let mut inst = self.load_word(pc).unwrap();
                     let addr = match label.get_address(self) {
                         Some(val) => val,
-                        None => Err(MIPSParseError {
-                            sequence: Some(format!("{}", label)),
-                            position: 0,
-                            err_type: ParseErrorType::UndefinedLabel,
-                            line_idx: None,
-                        })?,
+                        None => {
+                            return Err(ParseError::expected_input_found(
+                                task.0,
+                                std::iter::empty(),
+                                None,
+                            )
+                            .with_label(ParseErrorType::UndefinedLabel));
+                        }
                     };
                     let mask = (1 << bit_len) - 1;
                     if (addr & mask) != (pc & mask) {

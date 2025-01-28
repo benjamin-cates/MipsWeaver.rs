@@ -1,20 +1,18 @@
 
+use chumsky::Parser;
 use mips_weaver::{
-    register::{Register, GPR_NAMES},
+    parse::components::{any_gpr_parser, float_register_parser}, register::{GPR_NAMES}
 };
 
 #[test]
 fn test_print_register() {
-    let mut names: Vec<String> = vec![];
+    let gpr_parser = any_gpr_parser();
     for name in GPR_NAMES.iter() {
-        names.push(format!("${name}"));
+        assert_eq!(format!("{}", gpr_parser.parse(format!("${}",name.0)).unwrap()), format!("${}",name.0));
     }
+    let float_parser = float_register_parser();
     for id in 0..31 {
-        names.push(format!("${id}"));
-        names.push(format!("$f{id}"));
-    }
-    for name in names {
-        let reg: Register = name.parse().unwrap();
-        assert_eq!(format!("{}", reg), name);
+        assert_eq!(format!("{}", gpr_parser.parse(format!("${id}")).unwrap()), format!("${id}"));
+        assert_eq!(format!("{}", float_parser.parse(format!("$f{id}")).unwrap()), format!("$f{id}"));
     }
 }

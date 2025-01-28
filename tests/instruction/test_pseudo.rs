@@ -1,7 +1,8 @@
+use chumsky::Parser;
 use mips_weaver::config::Config;
 use mips_weaver::config::Version;
-use mips_weaver::instruction::Instruction;
 use mips_weaver::instruction::InstructionType;
+use mips_weaver::parse::instruction_parser;
 
 #[test]
 fn test_instruction_version() {
@@ -491,17 +492,18 @@ fn test_instruction_version() {
             ..Default::default()
         })
         .collect();
+    let parsers = (0..6).map(|v| instruction_parser(configs[v].version)).collect::<Vec<_>>();
     for case in version_matrix {
         // If case only works in version 6, parse with version 6 config
         // This is a workaround to mul being defined differently in different versions
         println!("{:?}", case);
         let inst = if case.1 == [false, false, false, false, false, true] {
-            Instruction::parse(case.0, &configs[5])
+            parsers[5].parse(case.0)
         } else {
-            Instruction::parse(case.0, &configs[4])
+            parsers[4].parse(case.0)
         };
         let inst = match inst {
-            Ok(inst) => inst,
+            Ok(inst) => inst.1,
             Err(err) => panic!("Failed to parse {}: {:?}", case.0, err),
         };
         for (v, is_supported) in case.1.iter().enumerate() {
@@ -719,12 +721,14 @@ fn test_pseudo_immediate() {
         version: mips_weaver::config::Version::R6,
         ..Default::default()
     };
+    let parser5 = instruction_parser(Version::R5);
+    let parser6 = instruction_parser(Version::R6);
 
     for not_pseudo in NOT_PSEUDO.iter() {
         println!("{}",not_pseudo);
         assert_eq!(
-            Instruction::parse(not_pseudo, &cfgr5)
-                .expect(not_pseudo)
+            parser5.parse(*not_pseudo)
+                .expect(not_pseudo).1
                 .instruction_type(&cfgr5),
             InstructionType::Inst,
             "{}",
@@ -734,8 +738,8 @@ fn test_pseudo_immediate() {
     for not_pseudo in NOT_PSEUDO_R6.iter() {
         println!("{}",not_pseudo);
         assert_eq!(
-            Instruction::parse(not_pseudo, &cfgr6)
-                .expect(not_pseudo)
+            parser6.parse(*not_pseudo)
+                .expect(not_pseudo).1
                 .instruction_type(&cfgr6),
             InstructionType::Inst,
             "{}",
@@ -745,8 +749,8 @@ fn test_pseudo_immediate() {
     for pseudo in IS_PSEUDO.iter() {
         println!("{}",pseudo);
         assert_eq!(
-            Instruction::parse(pseudo, &cfgr5)
-                .expect(pseudo)
+            parser5.parse(*pseudo)
+                .expect(pseudo).1
                 .instruction_type(&cfgr5),
             InstructionType::PseudoInst,
             "{}",
@@ -756,8 +760,8 @@ fn test_pseudo_immediate() {
     for pseudo in IS_PSEUDO_R6.iter() {
         println!("{}",pseudo);
         assert_eq!(
-            Instruction::parse(pseudo, &cfgr6)
-                .expect(pseudo)
+            parser6.parse(*pseudo)
+                .expect(pseudo).1
                 .instruction_type(&cfgr6),
             InstructionType::PseudoInst,
             "{}",

@@ -29,7 +29,7 @@ impl Display for RegRand {
         if (self.0 / 32) % 2 == 0 {
             f.write_fmt(format_args!("{}", self.0 as usize % 32))
         } else {
-            f.write_str(GPR_NAMES[self.0 as usize % 32])
+            f.write_str(GPR_NAMES[self.0 as usize % 32].0)
         }
     }
 }
