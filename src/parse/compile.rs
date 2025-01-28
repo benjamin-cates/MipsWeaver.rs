@@ -87,7 +87,6 @@ fn write_data_segment(mem: &mut Memory, mut addr: u32, elements: Vec<DataElement
             DataElement::Space(space) => {
                 addr += space as u32;
             }
-            DataElement::Comment => {}
         }
     }
 }
@@ -160,14 +159,18 @@ pub fn program_parser<'a>(cfg: &'a Config) -> impl Parser<char, Memory, Error = 
                     Section::KText(vals) => ktext.extend(vals),
                 };
             }
-            let mut mem = Memory::default();
-            let mut linker_tasks: Vec<(Range<usize>, LinkerTask)> = vec![];
-            write_data_segment(&mut mem, 0x1001_0000, data);
-            write_data_segment(&mut mem, 0x9000_0000, kdata);
-            write_text_segment(&cfg, &mut mem, &mut linker_tasks, 0x0040_0000, text)?;
-            write_text_segment(&cfg, &mut mem, &mut linker_tasks, 0x8000_0000, ktext)?;
-            mem.linker(linker_tasks)?;
-            Ok(mem)
+            make_program(cfg, data, kdata, text, ktext)
         })
         .then_ignore(end())
+}
+
+pub fn make_program(cfg: &Config, data: Vec<DataElement>, kdata: Vec<DataElement>, text: Vec<TextElement>, ktext: Vec<TextElement>) -> Result<Memory, ParseError> {
+    let mut mem = Memory::default();
+    let mut linker_tasks: Vec<(Range<usize>, LinkerTask)> = vec![];
+    write_data_segment(&mut mem, 0x1001_0000, data);
+    write_data_segment(&mut mem, 0x9000_0000, kdata);
+    write_text_segment(&cfg, &mut mem, &mut linker_tasks, 0x0040_0000, text)?;
+    write_text_segment(&cfg, &mut mem, &mut linker_tasks, 0x8000_0000, ktext)?;
+    mem.linker(linker_tasks)?;
+    Ok(mem)
 }

@@ -11,7 +11,7 @@ use crate::{config::Version, instruction::Instruction};
 use super::{components::endl, instruction::instruction_parser, ParseError};
 
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum TextElement {
+pub enum TextElement {
     Instruction((Range<usize>, Instruction)),
     Label(String),
 }

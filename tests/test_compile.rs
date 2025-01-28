@@ -1,15 +1,44 @@
+use chumsky::Parser;
 use mips_weaver::config::Config;
 use mips_weaver::instruction::Instruction;
 use mips_weaver::memory::FloatType;
-use mips_weaver::memory::Memory;
+use mips_weaver::parse::make_program;
 use mips_weaver::parse::program_parser;
+use mips_weaver::parse::DataElement;
+use mips_weaver::parse::TextElement;
 use mips_weaver::register::Processor;
 use mips_weaver::register::Register;
 
 #[test]
-fn test_compile_errors() {
+fn test_compile_success() {
     let cfg = &Config::default();
     let parser = program_parser(&cfg);
+    let float_0 = Register {
+        id: 0,
+        processor: Processor::Cop(1),
+    };
+    assert_eq!(
+        parser.parse(".data\n.word 1\nlabel: abs.s $0, $0").unwrap(),
+        make_program(
+            cfg,
+            vec![DataElement::Word(1)],
+            vec![],
+            vec![],
+            vec![
+                TextElement::Label(String::from("label")),
+                TextElement::Instruction((
+                    0..0,
+                    Instruction::AbsFloat(FloatType::Single, (float_0, float_0))
+                ))
+            ]
+        )
+        .unwrap()
+    );
+
+}
+
+#[test]
+fn test_compile_errors() {
     //assert_eq!(
     //    Memory::default().init_from_code(".data\nline: .word -5.4", cfg),
     //    Err(MIPSParseError {

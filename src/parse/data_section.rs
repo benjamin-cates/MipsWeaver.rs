@@ -11,7 +11,7 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) enum DataElement {
+pub enum DataElement {
     Float(f32),
     Double(f64),
     Ascii(String),
@@ -22,7 +22,6 @@ pub(crate) enum DataElement {
     Label(String),
     Space(usize),
     Global(String),
-    Comment,
 }
 
 impl DataElement {
