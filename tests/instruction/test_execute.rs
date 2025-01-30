@@ -20,7 +20,7 @@ fn test_execution_no_crash() {
             println!("{}", string);
         }
         mem.program_counter = 0x0040_0000;
-        if let Ok(translated) = mem.translate_pseudo_instruction(instruction, &(0..0), &mem.cfg) {
+        if let Ok(translated) = mem.translate_pseudo_instruction(instruction, 0..0, &mem.cfg) {
             let mut linker_tasks = vec![];
             // Test if can successfully encode
             translated.iter().for_each(|inst| {

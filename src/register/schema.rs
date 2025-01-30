@@ -1,61 +1,58 @@
 /// Stores a processor that a register is present on
-#[derive(Clone, Copy, Debug)]
-pub enum Processor {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Proc {
     GPR,
-    Cop(u8),
+    Cop0,
+    Cop1,
+    Cop2,
     Unknown,
 }
-impl PartialEq for Processor {
+
+/// Stores a location and id of a register
+#[derive(Clone, Copy, Debug)]
+pub struct Register(pub Proc, pub usize);
+
+impl PartialEq for Register {
     fn eq(&self, other: &Self) -> bool {
-        match self {
-            Processor::GPR => match other {
-                Processor::Cop(_) => false,
-                Processor::GPR => true,
-                Processor::Unknown => true,
-            },
-            Processor::Cop(x) => match other {
-                Processor::Cop(y) => x == y,
-                Processor::GPR => false,
-                Processor::Unknown => true,
-            },
-            Processor::Unknown => true,
-        }
+        self.1 == other.1
+            && (self.0 == other.0 || self.0 == Proc::Unknown || other.0 == Proc::Unknown)
     }
 }
-impl Eq for Processor {}
-/// Stores a location and id of a register
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Register {
-    pub processor: Processor,
-    pub id: usize,
-}
+
+impl Eq for Register {}
 
 impl Register {
     pub fn is_gpr(&self) -> bool {
-        self.processor == Processor::GPR
+        self.0 == Proc::GPR || self.0 == Proc::Unknown
     }
     pub fn is_float(&self) -> bool {
-        self.is_cop(1)
+        self.is_cop1()
     }
     pub fn is_double(&self) -> bool {
-        self.is_cop(1)
+        self.is_cop1()
     }
     pub fn is_paired_single(&self) -> bool {
-        self.is_cop(1)
+        self.is_cop1()
     }
-    pub fn is_cop(&self, cop: u8) -> bool {
-        self.processor == Processor::Cop(cop)
+    pub fn is_cop0(&self) -> bool {
+        self.0 == Proc::Cop0 || self.0 == Proc::Unknown
+    }
+    pub fn is_cop1(&self) -> bool {
+        self.0 == Proc::Cop1 || self.0 == Proc::Unknown
+    }
+    pub fn is_cop2(&self) -> bool {
+        self.0 == Proc::Cop2 || self.0 == Proc::Unknown
     }
     pub fn new_gpr(id: usize) -> Self {
-        Register {
-            processor: Processor::GPR,
-            id,
-        }
+        Register(Proc::GPR, id)
     }
     pub fn new_float(id: usize) -> Self {
-        Register {
-            processor: Processor::Cop(1),
-            id,
-        }
+        Register(Proc::Cop1, id)
+    }
+    pub fn id(&self) -> usize {
+        self.1
+    }
+    pub fn proc(&self) -> Proc {
+        self.0
     }
 }

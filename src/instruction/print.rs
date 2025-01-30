@@ -1,7 +1,7 @@
 use crate::{
     instruction::{types::Likely, Comparison, Immediate},
     memory::{FloatType, IntType},
-    register::{Processor, Register},
+    register::{Proc, Register},
 };
 use std::fmt::Display;
 
@@ -162,8 +162,8 @@ impl Display for Instruction {
             I::Break => w!(f, "break"),
             I::BranchCop(cop, tf, likely, (Imm(imm), ref label)) => {
                 let command = match cop {
-                    Processor::Cop(1) => "bc1",
-                    Processor::Cop(2) => "bc2",
+                    Proc::Cop1 => "bc1",
+                    Proc::Cop2 => "bc2",
                     _ => unreachable!(),
                 };
                 let tf = if tf { "t" } else { "f" };
@@ -175,8 +175,8 @@ impl Display for Instruction {
             }
             I::BranchCopZ(cop, eq, (ct, ref label)) => {
                 let command = match cop {
-                    Processor::Cop(1) => "bc1",
-                    Processor::Cop(2) => "bc2",
+                    Proc::Cop1 => "bc1",
+                    Proc::Cop2 => "bc2",
                     _ => unreachable!(),
                 };
                 let eq = if eq { "eq" } else { "ne" };
@@ -201,8 +201,8 @@ impl Display for Instruction {
                 }
             }
             I::CopyFromControlCop(cop, (rt, rs)) => match cop {
-                Processor::Cop(1) => w!(f, "cfc1 {rt}, {rs}"),
-                Processor::Cop(2) => todo!(),
+                Proc::Cop1 => w!(f, "cfc1 {rt}, {rs}"),
+                Proc::Cop2 => todo!(),
                 _ => unreachable!(),
             },
             I::Class(fmt, (fd, fs)) => w!(f, "class.{fmt} {fd}, {fs}"),
@@ -213,8 +213,8 @@ impl Display for Instruction {
             I::Crc32(it, (rt, rs)) => w!(f, "crc32{it} {rt}, {rs}, {rt}"),
             I::Crc32C(it, (rt, rs)) => w!(f, "crc32c{it} {rt}, {rs}, {rt}"),
             I::CopyToControlCop(cop, (rt, rs)) => match cop {
-                Processor::Cop(1) => w!(f, "ctc1 {rt}, {rs}"),
-                Processor::Cop(2) => todo!(),
+                Proc::Cop1 => w!(f, "ctc1 {rt}, {rs}"),
+                Proc::Cop2 => todo!(),
                 _ => unreachable!(),
             },
             I::CvtToInt(it, ft, (fd, fs)) => match it {
@@ -270,10 +270,10 @@ impl Display for Instruction {
             I::JumpRegister(false, rs) => w!(f, "jr {rs}"),
             I::JumpRegister(true, rs) => w!(f, "jr.hb {rs}"),
             I::LoadInt(sign, it, (rt, ref sum_addr)) => w!(f, "l{it}{sign} {rt}, {sum_addr}"),
-            I::LoadCop(Processor::Cop(1), it, (rt, ref sum_addr)) => {
+            I::LoadCop(Proc::Cop1, it, (rt, ref sum_addr)) => {
                 w!(f, "l{it}c1 {rt}, {sum_addr}")
             }
-            I::LoadCop(Processor::Cop(2), it, (rt, ref sum_addr)) => {
+            I::LoadCop(Proc::Cop2, it, (rt, ref sum_addr)) => {
                 w!(f, "l{it}c2 {rt}, {sum_addr}")
             }
             I::LoadCop(..) => unreachable!(),
@@ -306,15 +306,19 @@ impl Display for Instruction {
             I::MaxFloat(fmt, false, (fd, ft, fs)) => w!(f, "max.{fmt}, {fd}, {fs}, {ft}"),
             I::MinFloat(fmt, true, (fd, ft, fs)) => w!(f, "mina.{fmt}, {fd}, {fs}, {ft}"),
             I::MinFloat(fmt, false, (fd, ft, fs)) => w!(f, "min.{fmt}, {fd}, {fs}, {ft}"),
-            I::MoveFromCop(Processor::Cop(x), (rt, rd, Imm(sel))) if sel != 0 && x == 0 => {
-                w!(f, "mfc{x} {rt}, {rd}, {sel}")
+            I::MoveFromCop(Proc::Cop0, (rt, rd, Imm(sel))) if sel != 0 => {
+                w!(f, "mfc0 {rt}, {rd}, {sel}")
             }
-            I::MoveFromCop(Processor::Cop(x), (rt, rd, Imm(..))) => w!(f, "mfc{x} {rt}, {rd}"),
+            I::MoveFromCop(Proc::Cop0, (rt, rd, Imm(..))) => w!(f, "mfc0 {rt}, {rd}"),
+            I::MoveFromCop(Proc::Cop1, (rt, rd, Imm(..))) => w!(f, "mfc1 {rt}, {rd}"),
+            I::MoveFromCop(Proc::Cop2, (rt, rd, Imm(..))) => w!(f, "mfc2 {rt}, {rd}"),
             I::MoveFromCop(..) => unreachable!(),
-            I::MoveFromHiCop(Processor::Cop(x), (rt, rd, Imm(sel))) if sel != 0 && x == 0 => {
-                w!(f, "mfhc{x} {rt}, {rd}, {sel}")
+            I::MoveFromHiCop(Proc::Cop0, (rt, rd, Imm(sel))) if sel != 0 => {
+                w!(f, "mfhc0 {rt}, {rd}, {sel}")
             }
-            I::MoveFromHiCop(Processor::Cop(x), (rt, rd, Imm(..))) => w!(f, "mfhc{x} {rt}, {rd}"),
+            I::MoveFromHiCop(Proc::Cop0, (rt, rd, Imm(..))) => w!(f, "mfhc0 {rt}, {rd}"),
+            I::MoveFromHiCop(Proc::Cop1, (rt, rd, Imm(..))) => w!(f, "mfhc1 {rt}, {rd}"),
+            I::MoveFromHiCop(Proc::Cop2, (rt, rd, Imm(..))) => w!(f, "mfhc2 {rt}, {rd}"),
             I::MoveFromHiCop(..) => unreachable!(),
             I::MoveFromHi(rd) => w!(f, "mfhi {rd}"),
             I::MoveFromLo(rd) => w!(f, "mflo {rd}"),
@@ -335,15 +339,19 @@ impl Display for Instruction {
             I::MoveOnNotZero(None, (rd, rs, rt)) => w!(f, "movn {rd}¸ {rs}, {rt}"),
             I::MoveOnZero(Some(fmt), (rd, rs, rt)) => w!(f, "movz.{fmt} {rd}¸ {rs}, {rt}"),
             I::MoveOnZero(None, (rd, rs, rt)) => w!(f, "movz {rd}¸ {rs}, {rt}"),
-            I::MoveToCop(Processor::Cop(x), (rt, rd, Imm(sel))) if sel != 0 && x == 0 => {
-                w!(f, "mtc{x} {rt}, {rd}, {sel}")
+            I::MoveToCop(Proc::Cop0, (rt, rd, Imm(sel))) if sel != 0 => {
+                w!(f, "mtc0 {rt}, {rd}, {sel}")
             }
-            I::MoveToCop(Processor::Cop(x), (rt, rd, Imm(..))) => w!(f, "mtc{x} {rt}, {rd}"),
+            I::MoveToCop(Proc::Cop0, (rt, rd, Imm(..))) => w!(f, "mtc0 {rt}, {rd}"),
+            I::MoveToCop(Proc::Cop1, (rt, rd, Imm(..))) => w!(f, "mtc1 {rt}, {rd}"),
+            I::MoveToCop(Proc::Cop2, (rt, rd, Imm(..))) => w!(f, "mtc2 {rt}, {rd}"),
             I::MoveToCop(..) => unreachable!(),
-            I::MoveToHiCop(Processor::Cop(x), (rt, rd, Imm(sel))) if sel != 0 && x == 0 => {
-                w!(f, "mthc{x} {rt}, {rd}, {sel}")
+            I::MoveToHiCop(Proc::Cop0, (rt, rd, Imm(sel))) if sel != 0 => {
+                w!(f, "mthc0 {rt}, {rd}, {sel}")
             }
-            I::MoveToHiCop(Processor::Cop(x), (rt, rd, Imm(..))) => w!(f, "mthc{x} {rt}, {rd}"),
+            I::MoveToHiCop(Proc::Cop0, (rt, rd, Imm(..))) => w!(f, "mthc0 {rt}, {rd}"),
+            I::MoveToHiCop(Proc::Cop1, (rt, rd, Imm(..))) => w!(f, "mthc1 {rt}, {rd}"),
+            I::MoveToHiCop(Proc::Cop2, (rt, rd, Imm(..))) => w!(f, "mthc2 {rt}, {rd}"),
             I::MoveToHiCop(..) => unreachable!(),
             I::MoveToHi(rd) => w!(f, "mthi {rd}"),
             I::MoveToLo(rd) => w!(f, "mtlo {rd}"),
@@ -375,10 +383,10 @@ impl Display for Instruction {
             I::Round(it, fmt, (fd, fs)) => w!(f, "round.{it}.{fmt} {fd}, {fs}"),
             I::ReciprocalSqrt(fmt, (fd, fs)) => w!(f, "rsqrt.{fmt} {fd}, {fs}"),
             I::StoreInt(it, (rt, ref sum_addr)) => w!(f, "s{it} {rt}, {sum_addr}"),
-            I::StoreCop(Processor::Cop(1), it, (rt, ref sum_addr)) => {
+            I::StoreCop(Proc::Cop1, it, (rt, ref sum_addr)) => {
                 w!(f, "s{it}c1 {rt}, {sum_addr}")
             }
-            I::StoreCop(Processor::Cop(2), it, (rt, ref sum_addr)) => {
+            I::StoreCop(Proc::Cop2, it, (rt, ref sum_addr)) => {
                 w!(f, "s{it}c2 {rt}, {sum_addr}")
             }
             I::StoreCop(..) => unreachable!(),

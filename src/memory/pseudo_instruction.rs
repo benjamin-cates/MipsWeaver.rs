@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use crate::{
-    config::{Config, Version}, parse::ParseErrorType, instruction::{Immediate, Instruction, Sign}, parse::{ParseError}, register::{Processor, Register}, util::fits_bits
+    config::{Config, Version}, parse::ParseErrorType, instruction::{Immediate, Instruction, Sign}, parse::{ParseError}, register::{Proc, Register}, util::fits_bits
 };
 
 use super::{Label, Memory, SumAddress};
@@ -132,11 +132,10 @@ impl Memory {
     pub fn translate_pseudo_instruction(
         &self,
         inst: Instruction,
-        span: &Range<usize>,
+        span: Range<usize>,
         cfg: &Config,
     ) -> Result<[I; 4], ParseError> {
-        use Processor::Cop;
-        let span = span.clone();
+        use Proc::Cop2;
         let at = Register::new_gpr(1);
         Ok(match inst {
             I::AddImmediate(s, (dst, src1, Imm(imm))) => {
@@ -155,7 +154,7 @@ impl Memory {
             ),
             I::LoadCop(cop, it, (reg, mut sum_addr)) => append_to_pseudo_list(
                 self.sum_addr_handler(
-                    if cop == Cop(2) && cfg.version == Version::R6 {
+                    if cop == Cop2 && cfg.version == Version::R6 {
                         11
                     } else {
                         16
@@ -214,7 +213,7 @@ impl Memory {
             ),
             I::StoreCop(cop, it, (reg, mut sum_addr)) => append_to_pseudo_list(
                 self.sum_addr_handler(
-                    if cop == Cop(2) && cfg.version == Version::R6 {
+                    if cop == Cop2 && cfg.version == Version::R6 {
                         11
                     } else {
                         16

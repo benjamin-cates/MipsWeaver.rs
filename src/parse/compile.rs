@@ -101,7 +101,7 @@ fn write_text_segment(
         if let TextElement::Instruction((span, inst)) = val {
             let mut emit = |task: LinkerTask| linker_tasks.push((span.clone(), task));
             for (i, inst) in mem
-                .translate_pseudo_instruction(inst, &span, cfg)?
+                .translate_pseudo_instruction(inst, span.clone(), cfg)?
                 .into_iter()
                 .enumerate()
             {

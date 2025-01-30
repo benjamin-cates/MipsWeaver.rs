@@ -5,7 +5,7 @@ use crate::instruction::Comparison;
 use crate::instruction::Instruction;
 use crate::memory::IntType;
 use crate::parse::ParseErrorType;
-use crate::register::Processor;
+use crate::register::Proc;
 use crate::register::Register;
 
 use super::Immediate;
@@ -185,7 +185,7 @@ fn inst_type_helper(inst: &Instruction, config: &Config) -> InstructionType {
         I::JumpLinkExchange(..) => n.max_v(v, R5),
         I::JumpIndexedCompact(..) => n.min_v(v, R6),
         I::LoadInt(_, _, (_, addr)) => n.base_offset(&addr, 16),
-        I::LoadCop(Processor::Cop(2), _, (_, addr)) if config.version == Version::R6 => {
+        I::LoadCop(Proc::Cop2, _, (_, addr)) if config.version == Version::R6 => {
             n.base_offset(&addr, 11)
         }
         I::LoadCop(_, _, (_, addr)) => n.base_offset(&addr, 16),
@@ -207,7 +207,7 @@ fn inst_type_helper(inst: &Instruction, config: &Config) -> InstructionType {
         I::MultiplySubFloat(_, _, _) => n.min_v(v, R2).max_v(v, R5),
         I::MultiplySubFloatFused(_, _) => n.min_v(v, R6),
         I::MoveFromCop(_, _) => n,
-        I::MoveFromHiCop(Processor::Cop(0), _) => n.min_v(v, R5),
+        I::MoveFromHiCop(Proc::Cop0, _) => n.min_v(v, R5),
         I::MoveFromHiCop(_, _) => n.min_v(v, R2),
         I::MoveFromHi(_) => n.max_v(v, R5),
         I::MoveFromLo(_) => n.max_v(v, R5),
@@ -223,8 +223,8 @@ fn inst_type_helper(inst: &Instruction, config: &Config) -> InstructionType {
         }
         .max_v(v, R5),
         I::MoveToCop(_, _) => n,
-        I::MoveToHiCop(Processor::Cop(0), _) => n.min_v(v, R5),
-        I::MoveToHiCop(Processor::Cop(1), _) => n.min_v(v, R2),
+        I::MoveToHiCop(Proc::Cop0, _) => n.min_v(v, R5),
+        I::MoveToHiCop(Proc::Cop1, _) => n.min_v(v, R2),
         I::MoveToHiCop(_, _) => todo!(),
         I::MoveToHi(_) => n.max_v(v, R5),
         I::MoveToLo(_) => n.max_v(v, R5),
@@ -257,7 +257,7 @@ fn inst_type_helper(inst: &Instruction, config: &Config) -> InstructionType {
         I::SwDebugBreak(_) => n,
         I::StoreCop(proc, _, (_, addr)) => n.base_offset(
             &addr,
-            if v == R6 && *proc == Processor::Cop(2) {
+            if v == R6 && *proc == Proc::Cop2 {
                 11
             } else {
                 16

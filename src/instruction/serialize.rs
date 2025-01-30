@@ -1,5 +1,5 @@
 use crate::{
-    config::{Config, Version}, instruction::{types::Likely, Comparison, Immediate}, memory::{linker::LinkerTask, FloatType, IntType}, register::{Processor, Register}, util
+    config::{Config, Version}, instruction::{types::Likely, Comparison, Immediate}, memory::{linker::LinkerTask, FloatType, IntType}, register::{Proc, Register}, util
 };
 
 use super::{Instruction, Label, Sign, SumAddress};
@@ -47,7 +47,7 @@ impl FloatType {
 impl Register {
     // Encode as a BitBuilder piece meaning a 5 bit sequence of its id
     fn enc(&self) -> (u32, usize) {
-        (self.id as u32, 5)
+        (self.id() as u32, 5)
     }
 }
 // Shorthand to create a single instrcution using bit builder
@@ -68,7 +68,7 @@ fn sum_addr_handler(
 ) -> u32 {
     let mut inst = inst;
     if let Some(reg) = sum_addr.register {
-        inst |= (reg.id as u32) << (32 - 5 - reg_idx);
+        inst |= (reg.id() as u32) << (32 - 5 - reg_idx);
     }
     if let Some(offset) = sum_addr.offset {
         inst |= (offset as u32 & ((1 << offset_len) - 1)) << (32 - offset_idx - offset_len);
@@ -269,7 +269,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
         }
         I::BranchCompact(cmp, sign, (rs, rt, ref label)) => {
             // BC
-            if cmp == Cmp::Eq && rs.id == 0 && rt.id == 0 {
+            if cmp == Cmp::Eq && rs.id() == 0 && rt.id() == 0 {
                 let offset = fill_label(emit, pc, 6, 26, label);
                 return build!((0b110010, 6), (offset, 26));
             }
@@ -286,8 +286,8 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
                 };
             }
 
-            let smaller = if rs.id < rt.id { rs.enc() } else { rt.enc() };
-            let larger = if rs.id > rt.id { rs.enc() } else { rt.enc() };
+            let smaller = if rs.id() < rt.id() { rs.enc() } else { rt.enc() };
+            let larger = if rs.id() > rt.id() { rs.enc() } else { rt.enc() };
             return match cmp {
                 // BLEC (pseudo instruction encoded as BGEC)
                 Cmp::Le => build!((0b010110, 6), rt.enc(), rs.enc(), (offset, 16)),
@@ -307,7 +307,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
             let offset = fill_label(emit, pc, 16, 16, label);
             build!(
                 (
-                    if cop == Processor::Cop(2) {
+                    if cop == Proc::Cop2 {
                         0b010010
                     } else {
                         0b010001
@@ -323,7 +323,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
             let offset = fill_label(emit, pc, 16, 16, label);
             build!(
                 (
-                    if cop == Processor::Cop(2) {
+                    if cop == Proc::Cop2 {
                         0b010010
                     } else {
                         0b010001
@@ -354,8 +354,8 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
         }
         I::BranchOverflowCompact(overflow, (rs, rt, ref label)) => {
             let offset = fill_label(emit, pc, 16, 16, label);
-            let smaller = if rs.id < rt.id { rs.enc() } else { rt.enc() };
-            let larger = if rs.id > rt.id { rs.enc() } else { rt.enc() };
+            let smaller = if rs.id() < rt.id() { rs.enc() } else { rt.enc() };
+            let larger = if rs.id() > rt.id() { rs.enc() } else { rt.enc() };
             build!(
                 (if overflow { 0b001000 } else { 0b011000 }, 6),
                 larger,
@@ -417,7 +417,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
             )
         }
         I::CopyFromControlCop(cop, (rt, fs)) => {
-            if cop == Processor::Cop(1) {
+            if cop == Proc::Cop1 {
                 build!((0b010001, 6), (0b00010, 5), rt.enc(), fs.enc(), (0, 11))
             } else {
                 unreachable!()
@@ -502,7 +502,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
             )
         }
         I::CopyToControlCop(cop, (rt, fs)) => {
-            if cop == Processor::Cop(1) {
+            if cop == Proc::Cop1 {
                 build!((0b010001, 6), (0b00110, 5), rt.enc(), fs.enc(), (0, 11))
             } else {
                 unreachable!()
@@ -784,13 +784,13 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
         }
         I::LoadCop(cop, it, (reg, ref sum_addr)) => {
             let id = match (cop, it) {
-                (Processor::Cop(1), IntType::Word) => 0b110001,
-                (Processor::Cop(1), IntType::Doubleword) => 0b110101,
-                (Processor::Cop(2), IntType::Word) => 0b110010,
-                (Processor::Cop(2), IntType::Doubleword) => 0b110110,
+                (Proc::Cop1, IntType::Word) => 0b110001,
+                (Proc::Cop1, IntType::Doubleword) => 0b110101,
+                (Proc::Cop2, IntType::Word) => 0b110010,
+                (Proc::Cop2, IntType::Doubleword) => 0b110110,
                 _ => unreachable!(),
             };
-            if cop == Processor::Cop(2) && cfg.version == Version::R6 {
+            if cop == Proc::Cop2 && cfg.version == Version::R6 {
                 let id = if it == IntType::Word {
                     0b01010
                 } else {
@@ -926,7 +926,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
             build!(cop1, fmt.enc5(), ft.enc(), fs.enc(), fd.enc(), (last, 6))
         }
         I::MoveFromCop(cop, (rt, rd, sel)) => {
-            if cop == Processor::Cop(0) {
+            if cop == Proc::Cop0 {
                 build!(
                     (0b010000, 6),
                     (0, 5),
@@ -935,14 +935,14 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
                     (0, 8),
                     (sel.0 as u32, 3)
                 )
-            } else if cop == Processor::Cop(1) {
+            } else if cop == Proc::Cop1 {
                 build!(cop1, (0, 5), rt.enc(), rd.enc(), (0, 11))
             } else {
                 unreachable!()
             }
         }
         I::MoveFromHiCop(cop, (rt, rd, sel)) => {
-            if cop == Processor::Cop(0) {
+            if cop == Proc::Cop0 {
                 build!(
                     (0b010000, 6),
                     (0b00010, 5),
@@ -951,7 +951,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
                     (0, 8),
                     (sel.0 as u32, 3)
                 )
-            } else if cop == Processor::Cop(1) {
+            } else if cop == Proc::Cop1 {
                 build!(cop1, (0b00011, 5), rt.enc(), rd.enc(), (0, 11))
             } else {
                 unreachable!()
@@ -1020,7 +1020,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
             }
         }
         I::MoveToCop(cop, (rt, rd, sel)) => {
-            if cop == Processor::Cop(0) {
+            if cop == Proc::Cop0 {
                 build!(
                     (0b010000, 6),
                     (0b00100, 5),
@@ -1029,14 +1029,14 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
                     (0, 8),
                     (sel.0 as u32, 3)
                 )
-            } else if cop == Processor::Cop(1) {
+            } else if cop == Proc::Cop1 {
                 build!(cop1, (0b00100, 5), rt.enc(), rd.enc(), (0, 11))
             } else {
                 unreachable!()
             }
         }
         I::MoveToHiCop(cop, (rt, rd, sel)) => {
-            if cop == Processor::Cop(0) {
+            if cop == Proc::Cop0 {
                 build!(
                     (0b010000, 6),
                     (0b00110, 5),
@@ -1045,7 +1045,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
                     (0, 8),
                     (sel.0 as u32, 3)
                 )
-            } else if cop == Processor::Cop(1) {
+            } else if cop == Proc::Cop1 {
                 build!(cop1, (0b00111, 5), rt.enc(), rd.enc(), (0, 11))
             } else {
                 unreachable!()
@@ -1232,7 +1232,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
             }
         }
         I::StoreCop(cop, it, (rt, ref sum_addr)) => {
-            if cop == Processor::Cop(1) {
+            if cop == Proc::Cop1 {
                 let id = match it {
                     IntType::Doubleword => 0b111101,
                     IntType::Word => 0b111001,
@@ -1240,7 +1240,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
                 };
                 let inst = build!((id, 6), (0, 5), rt.enc(), (0, 16));
                 sum_addr_handler(inst, 6, 16, 16, sum_addr)
-            } else if cop == Processor::Cop(2) {
+            } else if cop == Proc::Cop2 {
                 if cfg.version == Version::R6 {
                     let id = match it {
                         IntType::Doubleword => 0b01111,

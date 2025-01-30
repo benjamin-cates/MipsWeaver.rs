@@ -1,6 +1,6 @@
 use crate::{
     instruction::{Immediate, Instruction},
-    register::Processor,
+    register::Proc,
     syscall::undo_syscall,
 };
 
@@ -84,7 +84,7 @@ impl Memory {
             | I::Xor((dst, ..))
             | I::XorImmediate((dst, ..)) => {
                 let val = self.history.pop()?;
-                self.set_reg(dst.id, val);
+                self.set_reg(dst.id(), val);
             }
 
             // Undo floating point arithmetic operations
@@ -97,7 +97,7 @@ impl Memory {
             | I::CvtToPS((dst, _, _))
             | I::CvtFromPS(_, (dst, _))
             | I::Floor(_, _, (dst, _))
-            | I::LoadCop(Processor::Cop(1), _, (dst, _))
+            | I::LoadCop(Proc::Cop1, _, (dst, _))
             | I::LoadIndexedCop1(_, (dst, _))
             | I::LoadIndexedUnalignedCop1(_, (dst, ..))
             | I::MultiplyAddFloat(_, _, (dst, ..))
@@ -107,8 +107,8 @@ impl Memory {
             | I::MaxFloat(_, _, (dst, ..))
             | I::MinFloat(_, _, (dst, ..))
             | I::MoveFloat(_, (dst, ..))
-            | I::MoveToHiCop(Processor::Cop(1), (_, dst, ..))
-            | I::MoveToCop(Processor::Cop(1), (_, dst, ..))
+            | I::MoveToHiCop(Proc::Cop1, (_, dst, ..))
+            | I::MoveToCop(Proc::Cop1, (_, dst, ..))
             | I::MoveOnFloatCondition(Some(_), _, (dst, ..))
             | I::MoveOnZero(Some(_), (dst, ..))
             | I::MoveOnNotZero(Some(_), (dst, ..))
@@ -124,7 +124,7 @@ impl Memory {
             | I::SubtractFloat(_, (dst, ..))
             | I::Trunc(_, _, (dst, ..)) => {
                 let val = self.history.pop_u64()?;
-                self.cop1_reg[dst.id] = val;
+                self.cop1_reg[dst.id()] = val;
             }
             
             // Floating point operations that may change fcsr
@@ -132,7 +132,7 @@ impl Memory {
             | I::CvtToInt(_, _, (dst, _))
             | I::DivFloat(_, (dst, ..)) => {
                 let val = self.history.pop_u64()?;
-                self.cop1_reg[dst.id] = val;
+                self.cop1_reg[dst.id()] = val;
                 let fcsr = self.history.pop()?;
                 if fcsr != 0 {
                     self.cop1.fcsr = fcsr;
@@ -148,11 +148,11 @@ impl Memory {
             I::DisableInterrupts(reg) | I::EnableInterrupts(reg) => {
                 self.cop0.status0 = self.history.pop()?;
                 let val = self.history.pop()?;
-                self.set_reg(reg.id, val);
+                self.set_reg(reg.id(), val);
             }
-            I::MoveToCop(Processor::Cop(0), (_, reg, Immediate(sel))) => {
+            I::MoveToCop(Proc::Cop0, (_, reg, Immediate(sel))) => {
                 self.cop0
-                    .set_register(&self.cfg, reg.id, *sel as usize, self.history.pop()?);
+                    .set_register(&self.cfg, reg.id(), *sel as usize, self.history.pop()?);
             }
             I::MoveToCop(..) => {
                 unimplemented!();
@@ -173,18 +173,18 @@ impl Memory {
                 self.cop0.lladdr = self.history.pop()?;
                 let reg_val = self.history.pop()?;
                 let addr = sum_addr.evaluate(self);
-                self.set_reg(rt.id, reg_val);
+                self.set_reg(rt.id(), reg_val);
                 let _ = self.store_word(addr, overwritten_word);
             }
             I::StoreConditionalPairedWord((rt, _, base)) => {
-                let addr = self.reg(base.id);
+                let addr = self.reg(base.id());
                 let overwritten_dw = self.history.pop_u64()?;
                 self.cop0.lladdr = self.history.pop()?;
                 let reg_val = self.history.pop()?;
-                self.set_reg(rt.id, reg_val);
+                self.set_reg(rt.id(), reg_val);
                 let _ = self.store_doubleword(addr, overwritten_dw);
             }
-            I::StoreCop(Processor::Cop(1), it, (_, ref sum_addr)) => {
+            I::StoreCop(Proc::Cop1, it, (_, ref sum_addr)) => {
                 let addr = sum_addr.evaluate(self);
                 let val = self.history.pop_u64()?;
                 let _ = self.store_int(*it, addr, val);
@@ -231,14 +231,14 @@ impl Memory {
             I::LoadLinkedWord((dst, _)) => {
                 self.cop0.lladdr = self.history.pop()?;
                 let val = self.history.pop()?;
-                self.set_reg(dst.id, val);
+                self.set_reg(dst.id(), val);
             }
             I::LoadLinkedWordPaired((rd, rt, ..)) => {
                 self.cop0.lladdr = self.history.pop()?;
                 let val = self.history.pop()?;
                 let val2 = self.history.pop()?;
-                let id1 = rt.id;
-                let id2 = rd.id;
+                let id1 = rt.id();
+                let id2 = rd.id();
                 self.set_reg(id1, val);
                 self.set_reg(id2, val2);
             }

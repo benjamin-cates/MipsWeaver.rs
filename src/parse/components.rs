@@ -8,7 +8,7 @@ use chumsky::{
 
 use crate::{
     memory::{IndexedAddr, Label, SumAddress},
-    register::{Processor, Register, GPR_NAMES},
+    register::{Proc, Register, GPR_NAMES},
 };
 
 use super::{error::ParseErrorType, ParseError};
@@ -27,10 +27,7 @@ pub fn general_register_parser() -> impl Parser<char, Register, Error = ParseErr
                         digits[0] as u8 - b'0'
                     };
                     if digit < 32 {
-                        Ok(Register {
-                            processor: Processor::Unknown,
-                            id: digit as usize,
-                        })
+                        Ok(Register(Proc::Unknown, digit as usize))
                     } else {
                         Err(ParseError::expected_input_found(
                             span,
@@ -45,10 +42,7 @@ pub fn general_register_parser() -> impl Parser<char, Register, Error = ParseErr
 pub fn gpr_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
     just("$")
         .ignore_then(choice(GPR_NAMES.map(|(v, i)| {
-            just(v).to(Register {
-                processor: Processor::GPR,
-                id: i,
-            })
+            just(v).to(Register(Proc::GPR, i))
         })))
         .labelled(ParseErrorType::InvalidRegisterName)
 }
@@ -72,10 +66,7 @@ pub fn float_register_parser() -> impl Parser<char, Register, Error = ParseError
                         digits[0] as u8 - b'0'
                     };
                     if digit < 32 {
-                        Ok(Register {
-                            processor: Processor::Cop(1),
-                            id: digit as usize,
-                        })
+                        Ok(Register(Proc::Cop1, digit as usize))
                     } else {
                         Err(ParseError::expected_input_found(
                             span,
@@ -236,7 +227,7 @@ mod test {
             components::{idx_address_parser, offset_label_parser, sum_address_parser},
             ParseError, ParseErrorType,
         },
-        register::{Processor, Register, GPR_NAMES},
+        register::{Proc, Register, GPR_NAMES},
     };
 
     use super::{
@@ -314,10 +305,7 @@ mod test {
         for (idx, name) in GPR_NAMES.iter().enumerate() {
             assert!(matches!(
                 gpr_parser.parse("$".to_owned() + name.0),
-                Ok(Register {
-                    processor: Processor::GPR,
-                    id
-                }) if id == idx
+                Ok(Register(Proc::GPR, id)) if id == idx
             ));
         }
         let false_tests = [
@@ -332,20 +320,14 @@ mod test {
         for idx in 0..=31 {
             assert_eq!(
                 any_parser.parse("$".to_owned() + idx.to_string().as_str()),
-                Ok(Register {
-                    processor: Processor::Unknown,
-                    id: idx,
-                })
+                Ok(Register(Proc::Unknown, idx))
             );
         }
         let float_parser = float_register_parser().then_ignore(end());
         for idx in 0..=31 {
             assert_eq!(
-                float_parser.parse(format!("$f{}", idx)).unwrap(),
-                Register {
-                    processor: Processor::Cop(1),
-                    id: idx,
-                }
+                float_parser.parse(format!("$f{}", idx)),
+                Ok(Register(Proc::Cop1, idx))
             );
         }
     }

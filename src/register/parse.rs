@@ -2,18 +2,18 @@ use std::fmt::Display;
 
 use crate::register::Register;
 
-use super::schema::Processor;
+use super::schema::Proc;
 
 impl Display for Register {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("$")?;
-        match self.processor {
-            Processor::GPR => f.write_str(GPR_NAMES[self.id as usize].0),
-            Processor::Cop(1) => {
+        match self.0 {
+            Proc::GPR => f.write_str(GPR_NAMES[self.1 as usize].0),
+            Proc::Cop1 => {
                 f.write_str("f")?;
-                f.write_fmt(format_args!("{}", self.id))
+                f.write_fmt(format_args!("{}", self.1))
             }
-            _ => f.write_fmt(format_args!("{}", self.id)),
+            _ => f.write_fmt(format_args!("{}", self.1)),
         }
     }
 }

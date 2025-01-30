@@ -41,7 +41,7 @@ impl SumAddress {
             address += *mem.labels.get(label).unwrap() as u64 as i64;
         }
         if let Some(reg) = self.register {
-            address += mem.reg(reg.id) as u64 as i64;
+            address += mem.reg(reg.id()) as u64 as i64;
         }
         if let Some(offset) = self.offset {
             address += offset as i64;
@@ -57,6 +57,6 @@ pub struct IndexedAddr(pub Register, pub Register);
 
 impl IndexedAddr {
     pub(crate) fn evaluate(&self, mem: &Memory) -> u32 {
-        mem.reg(self.0.id).wrapping_add(mem.reg(self.1.id))
+        mem.reg(self.0.id()).wrapping_add(mem.reg(self.1.id()))
     }
 }

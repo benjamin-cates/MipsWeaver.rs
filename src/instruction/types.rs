@@ -4,7 +4,7 @@ use crate::instruction::Label;
 use crate::instruction::SumAddress;
 use crate::memory::FloatType;
 use crate::memory::IntType;
-use crate::register::{Processor, Register};
+use crate::register::{Proc, Register};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Sign {
@@ -235,12 +235,12 @@ pub enum Instruction {
 
     /// For instructions `bc1f`, `bc1fl`, `bc1t`, `bc1tl`, `bc2f`, `bc2fl`, `bc2t`, and `bc2tl`.
     /// Branches to the label if the condition code indexed by the immediate matches the true/false behavior.
-    BranchCop(Processor, bool, Likely, (Immediate, Label)),
+    BranchCop(Proc, bool, Likely, (Immediate, Label)),
 
     /// For instructions `bc1eqz`, `bc1nez`, `bc2eqz`, and `bc2nez`.
     /// The bool specifies equal (true) or not equal (false).
     /// If the least significant bit of the coprocessors register is equal or not equal to zero, jump to the label.
-    BranchCopZ(Processor, bool, (Register, Label)),
+    BranchCopZ(Proc, bool, (Register, Label)),
 
     /// For instructions `b`, `beq`, `beql`, `bne`, and `bnel`.
     /// Operation is branch to label if `gpr[src1] {cmp} gpr[src2]`.
@@ -300,7 +300,7 @@ pub enum Instruction {
 
     /// For instructions `cfc1` and `cfc2`.
     /// Moves the control word from the coprocessor into a gpr.
-    CopyFromControlCop(Processor, (Register, Register)),
+    CopyFromControlCop(Proc, (Register, Register)),
 
     /// For instructions `class.s` and `class.d`.
     /// Classifies the value in the floating point register and stores the classification id in the floating point destination.
@@ -343,7 +343,7 @@ pub enum Instruction {
 
     /// For instructions `ctc1` and `ctc2`.
     /// Moves a gpr into the control word of a coprocessor.
-    CopyToControlCop(Processor, (Register, Register)),
+    CopyToControlCop(Proc, (Register, Register)),
 
     /// For instructions `cvt.s.w`, `cvt.s.l`, `cvt.d.w`, `cvt.d.l`.
     CvtToFloat(FloatType, IntType, (Register, Register)),
@@ -461,7 +461,7 @@ pub enum Instruction {
 
     /// For instructions `ldc1`, `ldc2`, `lwc1`, `lwc2`.
     /// Loads word from memory into the register on the coprocessor
-    LoadCop(Processor, IntType, (Register, SumAddress)),
+    LoadCop(Proc, IntType, (Register, SumAddress)),
 
     /// For instrutions `lwxc1` and `ldxc1`.
     /// Loads value at indexed address into cop1 register.
@@ -537,12 +537,12 @@ pub enum Instruction {
 
     /// For instructions `mfc0`, `mfc1`, `mfc2`.
     /// Moves from coprocessor registers.
-    MoveFromCop(Processor, (Register, Register, Immediate)),
+    MoveFromCop(Proc, (Register, Register, Immediate)),
 
     /// For instructions `mfhc0`, `mfhc1`, `mfhc2`.
     /// Moves from the high bits of the coprocessor registers.
     /// High bits of coprocessor registers not implemented yet.
-    MoveFromHiCop(Processor, (Register, Register, Immediate)),
+    MoveFromHiCop(Proc, (Register, Register, Immediate)),
 
     /// For instruction `mfhi`.
     /// Moves the hi register into another register.
@@ -573,7 +573,7 @@ pub enum Instruction {
 
     /// For instructions `mtc0`, `mtc1`, `mtc2`.
     /// Moves to coprocessor registers.
-    MoveToCop(Processor, (Register, Register, Immediate)),
+    MoveToCop(Proc, (Register, Register, Immediate)),
 
     /// For instruction `mthi`.
     /// Moves to the hi register from another register.
@@ -582,7 +582,7 @@ pub enum Instruction {
     /// For instructions `mthc0`, `mthc1`, `mthc2`.
     /// Moves to the high bits of the coprocessor registers.
     /// High bits of coprocessor registers not implemented yet.
-    MoveToHiCop(Processor, (Register, Register, Immediate)),
+    MoveToHiCop(Proc, (Register, Register, Immediate)),
 
     /// For instruction `mtlo`.
     /// Moves to the lo register from another register.
@@ -697,7 +697,7 @@ pub enum Instruction {
 
     /// For instructions `sdc1`, `sdc2`, `swc1`, `swc2`.
     /// Stores word into memory from the register on the coprocessor
-    StoreCop(Processor, IntType, (Register, SumAddress)),
+    StoreCop(Proc, IntType, (Register, SumAddress)),
 
     /// For instrutions `swxc1` and `sdxc1`.
     /// Stores value at indexed address from cop1 register.

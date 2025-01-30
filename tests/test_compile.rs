@@ -6,17 +6,14 @@ use mips_weaver::parse::make_program;
 use mips_weaver::parse::program_parser;
 use mips_weaver::parse::DataElement;
 use mips_weaver::parse::TextElement;
-use mips_weaver::register::Processor;
+use mips_weaver::register::Proc;
 use mips_weaver::register::Register;
 
 #[test]
 fn test_compile_success() {
     let cfg = &Config::default();
     let parser = program_parser(&cfg);
-    let float_0 = Register {
-        id: 0,
-        processor: Processor::Cop(1),
-    };
+    let float_0 = Register(Proc::Cop1, 0);
     assert_eq!(
         parser.parse(".data\n.word 1\n.text\nlabel:\n abs.s $0, $0").unwrap(),
         make_program(

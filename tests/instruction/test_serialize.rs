@@ -32,7 +32,7 @@ fn test_serialize_all() {
             version,
             ..Default::default()
         };
-        let translated = mem.translate_pseudo_instruction(instruction, &(0..0), &cfg);
+        let translated = mem.translate_pseudo_instruction(instruction, 0..0, &cfg);
         if translated.is_err() {
             continue;
         }
@@ -721,7 +721,7 @@ fn test_serialize_random() {
     for test in PSEUDO_TESTS {
 
         let insts = mem
-            .translate_pseudo_instruction(parser.parse(test.0).expect(test.0).1, &(0..0), &cfgr5)
+            .translate_pseudo_instruction(parser.parse(test.0).expect(test.0).1, 0..0, &cfgr5)
             .unwrap();
         let mut other_insts = [
             Instruction::Nop,

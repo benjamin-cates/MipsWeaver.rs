@@ -17,7 +17,7 @@ use crate::{
         error::ParseErrorType,
         ParseError, INSTRUCTION_LIST,
     },
-    register::{Processor, Register},
+    register::{Proc, Register},
 };
 
 use super::components::{any_float_reg_parser, integer_parser};
@@ -283,13 +283,13 @@ fn get_inst_parser(
             })
         }
         "bc1eqz" | "bc1nez" => args_parser_2(&fpr, &to_boxy(offset_label_parser()), move |args| {
-            I::BranchCopZ(Processor::Cop(1), name.find("eqz").is_some(), args)
+            I::BranchCopZ(Proc::Cop1, name.find("eqz").is_some(), args)
         }),
         "bc2eqz" | "bc2nez" => args_parser_2(&fpr, &to_boxy(offset_label_parser()), move |args| {
-            I::BranchCopZ(Processor::Cop(2), name.find("eqz").is_some(), args)
+            I::BranchCopZ(Proc::Cop2, name.find("eqz").is_some(), args)
         }),
         "bc1f" | "bc1fl" | "bc1t" | "bc1tl" | "bc2f" | "bc2fl" | "bc2t" | "bc2tl" => {
-            let proc: u8 = if name.as_bytes()[2] == b'1' { 1 } else { 2 };
+            let proc = if name.as_bytes()[2] == b'1' { Proc::Cop1 } else { Proc::Cop2 };
             let truthy: bool = name.find('t').is_some();
             let likely = if name.find('l').is_some() {
                 Likely::True
@@ -299,12 +299,12 @@ fn get_inst_parser(
             args_parser_2(
                 &lit_parser(U, 3),
                 &to_boxy(offset_label_parser()),
-                move |args| I::BranchCop(Processor::Cop(proc), truthy, likely, args),
+                move |args| I::BranchCop(proc, truthy, likely, args),
             )
             .or(args_parser_1(
                 &to_boxy(offset_label_parser()),
                 move |args| {
-                    I::BranchCop(Processor::Cop(proc), truthy, likely, (Immediate(0), args))
+                    I::BranchCop(proc, truthy, likely, (Immediate(0), args))
                 },
             ))
             .boxed()
@@ -324,7 +324,7 @@ fn get_inst_parser(
             args_parser_2(&fpr, &fpr, move |args| I::Ceil(IntType::Word, ft, args))
         }
         "cfc1" => args_parser_2(&gpr, &fpr, |args| {
-            I::CopyFromControlCop(Processor::Cop(1), args)
+            I::CopyFromControlCop(Proc::Cop1, args)
         }),
         "class.s" | "class.d" => args_parser_2(&fpr, &fpr, move |args| I::Class(ft, args)),
         "clo" => args_parser_2(&gpr, &gpr, I::CountLeadingOne),
@@ -372,7 +372,7 @@ fn get_inst_parser(
                 .boxed()
         }
         "ctc1" => args_parser_2(&gpr, &fpr, |args| {
-            I::CopyToControlCop(Processor::Cop(1), args)
+            I::CopyToControlCop(Proc::Cop1, args)
         }),
         "cvt.d.s" | "cvt.s.d" => {
             let ft2 = name[3..5].parse().unwrap();
@@ -501,13 +501,13 @@ fn get_inst_parser(
         "lwc2" | "ldc2" => {
             let it = name[1..2].parse().unwrap();
             args_parser_2(&gpr, &to_boxy(sum_address_parser()), move |args| {
-                I::LoadCop(Processor::Cop(2), it, args)
+                I::LoadCop(Proc::Cop2, it, args)
             })
         }
         "lwc1" | "ldc1" => {
             let it = name[1..2].parse().unwrap();
             args_parser_2(&fpr, &to_boxy(sum_address_parser()), move |args| {
-                I::LoadCop(Processor::Cop(1), it, args)
+                I::LoadCop(Proc::Cop1, it, args)
             })
         }
         "ll" => args_parser_2(&gpr, &to_boxy(sum_address_parser()), I::LoadLinkedWord),
@@ -549,31 +549,31 @@ fn get_inst_parser(
             args_parser_3(&fpr, &fpr, &fpr, move |args| I::MinFloat(ft, abs, args))
         }
         "mfc0" => args_parser_3(&gpr, &gpr, &lit_parser(U, 3), |args| {
-            I::MoveFromCop(Processor::Cop(0), args)
+            I::MoveFromCop(Proc::Cop0, args)
         })
         .or(args_parser_2(&gpr, &gpr, |args| {
-            I::MoveFromCop(Processor::Cop(0), (args.0, args.1, Immediate(0)))
+            I::MoveFromCop(Proc::Cop0, (args.0, args.1, Immediate(0)))
         }))
         .boxed(),
         "mfhc0" => args_parser_3(&gpr, &gpr, &lit_parser(U, 3), |args| {
-            I::MoveFromHiCop(Processor::Cop(0), args)
+            I::MoveFromHiCop(Proc::Cop0, args)
         })
         .or(args_parser_2(&gpr, &gpr, |args| {
-            I::MoveFromHiCop(Processor::Cop(0), (args.0, args.1, Immediate(0)))
+            I::MoveFromHiCop(Proc::Cop0, (args.0, args.1, Immediate(0)))
         }))
         .boxed(),
         "mfc1" => args_parser_3(&gpr, &fpr, &lit_parser(U, 3), |args| {
-            I::MoveFromCop(Processor::Cop(1), args)
+            I::MoveFromCop(Proc::Cop1, args)
         })
         .or(args_parser_2(&gpr, &fpr, |args| {
-            I::MoveFromCop(Processor::Cop(1), (args.0, args.1, Immediate(0)))
+            I::MoveFromCop(Proc::Cop1, (args.0, args.1, Immediate(0)))
         }))
         .boxed(),
         "mfhc1" => args_parser_3(&gpr, &fpr, &lit_parser(U, 3), |args| {
-            I::MoveFromHiCop(Processor::Cop(1), args)
+            I::MoveFromHiCop(Proc::Cop1, args)
         })
         .or(args_parser_2(&gpr, &fpr, |args| {
-            I::MoveFromHiCop(Processor::Cop(1), (args.0, args.1, Immediate(0)))
+            I::MoveFromHiCop(Proc::Cop1, (args.0, args.1, Immediate(0)))
         }))
         .boxed(),
         "mfhi" => args_parser_1(&gpr, I::MoveFromHi),
@@ -598,31 +598,31 @@ fn get_inst_parser(
             args_parser_3(&fpr, &fpr, &gpr, move |args| I::MoveOnZero(Some(ft), args))
         }
         "mtc0" => args_parser_3(&gpr, &gpr, &lit_parser(U, 3), |args| {
-            I::MoveToCop(Processor::Cop(0), args)
+            I::MoveToCop(Proc::Cop0, args)
         })
         .or(args_parser_2(&gpr, &gpr, |args| {
-            I::MoveToCop(Processor::Cop(0), (args.0, args.1, Immediate(0)))
+            I::MoveToCop(Proc::Cop0, (args.0, args.1, Immediate(0)))
         }))
         .boxed(),
         "mthc0" => args_parser_3(&gpr, &gpr, &lit_parser(U, 3), |args| {
-            I::MoveToHiCop(Processor::Cop(0), args)
+            I::MoveToHiCop(Proc::Cop0, args)
         })
         .or(args_parser_2(&gpr, &gpr, |args| {
-            I::MoveToHiCop(Processor::Cop(0), (args.0, args.1, Immediate(0)))
+            I::MoveToHiCop(Proc::Cop0, (args.0, args.1, Immediate(0)))
         }))
         .boxed(),
         "mtc1" => args_parser_3(&gpr, &fpr, &lit_parser(U, 3), |args| {
-            I::MoveToCop(Processor::Cop(1), args)
+            I::MoveToCop(Proc::Cop1, args)
         })
         .or(args_parser_2(&gpr, &fpr, |args| {
-            I::MoveToCop(Processor::Cop(1), (args.0, args.1, Immediate(0)))
+            I::MoveToCop(Proc::Cop1, (args.0, args.1, Immediate(0)))
         }))
         .boxed(),
         "mthc1" => args_parser_3(&gpr, &fpr, &lit_parser(U, 3), |args| {
-            I::MoveToHiCop(Processor::Cop(1), args)
+            I::MoveToHiCop(Proc::Cop1, args)
         })
         .or(args_parser_2(&gpr, &fpr, |args| {
-            I::MoveToHiCop(Processor::Cop(1), (args.0, args.1, Immediate(0)))
+            I::MoveToHiCop(Proc::Cop1, (args.0, args.1, Immediate(0)))
         }))
         .boxed(),
         "mthi" => args_parser_1(&gpr, I::MoveToHi),
@@ -691,13 +691,13 @@ fn get_inst_parser(
         "swc2" | "sdc2" => {
             let it = name[1..2].parse().unwrap();
             args_parser_2(&gpr, &to_boxy(sum_address_parser()), move |args| {
-                I::StoreCop(Processor::Cop(2), it, args)
+                I::StoreCop(Proc::Cop2, it, args)
             })
         }
         "swc1" | "sdc1" => {
             let it = name[1..2].parse().unwrap();
             args_parser_2(&fpr, &to_boxy(sum_address_parser()), move |args| {
-                I::StoreCop(Processor::Cop(1), it, args)
+                I::StoreCop(Proc::Cop1, it, args)
             })
         }
         "swxc1" => args_parser_2(&fpr, &to_boxy(idx_address_parser()), |args| {
