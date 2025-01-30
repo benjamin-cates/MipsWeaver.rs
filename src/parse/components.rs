@@ -3,7 +3,7 @@ use std::ops::Range;
 use chumsky::{
     prelude::{choice, empty, end, filter, just, none_of, one_of, take_until},
     text::{ident, newline, TextParser},
-    Error, Parser,
+    Parser,
 };
 
 use crate::{
@@ -14,37 +14,29 @@ use crate::{
 use super::{error::ParseErrorType, ParseError};
 
 pub fn general_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
-    just('$')
-        .ignore_then(
-            one_of("0123456789")
-                .repeated()
-                .at_least(1)
-                .at_most(2)
-                .try_map(|digits, span| {
-                    let digit = if digits.len() == 2 {
-                        10 * (digits[0] as u8 - b'0') + (digits[1] as u8 - b'0')
-                    } else {
-                        digits[0] as u8 - b'0'
-                    };
-                    if digit < 32 {
-                        Ok(Register(Proc::Unknown, digit as usize))
-                    } else {
-                        Err(ParseError::expected_input_found(
-                            span,
-                            std::iter::empty(),
-                            None,
-                        ))
-                    }
-                }),
-        )
-        .labelled(ParseErrorType::InvalidRegisterName)
+    just('$').ignore_then(
+        one_of("0123456789")
+            .repeated()
+            .at_least(1)
+            .at_most(2)
+            .try_map(|digits, span| {
+                let digit = if digits.len() == 2 {
+                    10 * (digits[0] as u8 - b'0') + (digits[1] as u8 - b'0')
+                } else {
+                    digits[0] as u8 - b'0'
+                };
+                if digit < 32 {
+                    Ok(Register(Proc::Unknown, digit as usize))
+                } else {
+                    Err(ParseError::new(span, ParseErrorType::InvalidRegisterName))
+                }
+            }),
+    )
 }
 pub fn gpr_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
-    just("$")
-        .ignore_then(choice(GPR_NAMES.map(|(v, i)| {
-            just(v).to(Register(Proc::GPR, i))
-        })))
-        .labelled(ParseErrorType::InvalidRegisterName)
+    just("$").ignore_then(choice(
+        GPR_NAMES.map(|(v, i)| just(v).to(Register(Proc::GPR, i))),
+    ))
 }
 pub fn any_gpr_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
     general_register_parser().or(gpr_register_parser())
@@ -53,30 +45,24 @@ pub fn any_float_reg_parser() -> impl Parser<char, Register, Error = ParseError>
     general_register_parser().or(float_register_parser())
 }
 pub fn float_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
-    just("$f")
-        .ignore_then(
-            one_of("0123456789")
-                .repeated()
-                .at_least(1)
-                .at_most(2)
-                .try_map(|digits, span| {
-                    let digit = if digits.len() == 2 {
-                        10 * (digits[0] as u8 - b'0') + (digits[1] as u8 - b'0')
-                    } else {
-                        digits[0] as u8 - b'0'
-                    };
-                    if digit < 32 {
-                        Ok(Register(Proc::Cop1, digit as usize))
-                    } else {
-                        Err(ParseError::expected_input_found(
-                            span,
-                            std::iter::empty(),
-                            None,
-                        ))
-                    }
-                }),
-        )
-        .labelled(ParseErrorType::InvalidRegisterName)
+    just("$f").ignore_then(
+        one_of("0123456789")
+            .repeated()
+            .at_least(1)
+            .at_most(2)
+            .try_map(|digits, span| {
+                let digit = if digits.len() == 2 {
+                    10 * (digits[0] as u8 - b'0') + (digits[1] as u8 - b'0')
+                } else {
+                    digits[0] as u8 - b'0'
+                };
+                if digit < 32 {
+                    Ok(Register(Proc::Cop1, digit as usize))
+                } else {
+                    Err(ParseError::new(span, ParseErrorType::InvalidRegisterName))
+                }
+            }),
+    )
 }
 pub(crate) fn endl() -> impl Parser<char, (), Error = ParseError> + Clone {
     just(' ').repeated().ignore_then(choice((
@@ -128,14 +114,9 @@ pub fn sum_address_parser() -> impl Parser<char, SumAddress, Error = ParseError>
                     register: reg,
                 })
             } else {
-                Err(ParseError::expected_input_found(
-                    span,
-                    std::iter::empty(),
-                    None,
-                ))
+                Err(ParseError::new(span, ParseErrorType::InvalidSumAddr))
             }
         })
-        .labelled(ParseErrorType::InvalidSumAddr)
 }
 
 pub fn idx_address_parser() -> impl Parser<char, IndexedAddr, Error = ParseError> + Clone {
@@ -145,25 +126,23 @@ pub fn idx_address_parser() -> impl Parser<char, IndexedAddr, Error = ParseError
 }
 
 pub fn offset_label_parser() -> impl Parser<char, Label, Error = ParseError> {
-    integer_parser().map(|v| Label::Offset(v)).or(ident()
-        .map(|v| Label::Name(v))
-        .labelled(ParseErrorType::InvalidLabel))
+    integer_parser()
+        .map(|v| Label::Offset(v))
+        .or(ident().map(|v| Label::Name(v)))
 }
 pub fn aligned_offset_label_parser() -> impl Parser<char, Label, Error = ParseError> {
     integer_parser()
         .validate(|v, span, emit| {
             if v < 0 {
-                emit(
-                    ParseError::expected_input_found(span, std::iter::empty(), None)
-                        .with_label(ParseErrorType::LitBounds(0, (1 << 32) - 1)),
-                )
+                emit(ParseError::new(
+                    span,
+                    ParseErrorType::LitBounds(0, (1 << 32) - 1),
+                ))
             }
             v
         })
         .map(|v| Label::Offset(v))
-        .or(ident()
-            .map(|v| Label::Name(v))
-            .labelled(ParseErrorType::InvalidLabel))
+        .or(ident().map(|v| Label::Name(v)))
 }
 
 pub fn float_parser() -> impl Parser<char, f64, Error = ParseError> + Clone {
@@ -178,9 +157,12 @@ pub fn float_parser() -> impl Parser<char, f64, Error = ParseError> + Clone {
         .from_str::<f64>()
         .try_map(|v: Result<f64, _>, span: Range<usize>| {
             v.ok()
-                .ok_or_else(|| ParseError::expected_input_found(span, std::iter::empty(), None))
+                .ok_or_else(|| ParseError::new(span, ParseErrorType::InvalidFloatLiteral))
         })
-        .labelled(ParseErrorType::InvalidFloatLiteral)
+        .map_err(|mut err| {
+            err.given_type = ParseErrorType::InvalidFloatLiteral;
+            err
+        })
 }
 
 pub fn integer_parser() -> impl Parser<char, i64, Error = ParseError> + Clone {
@@ -199,9 +181,12 @@ pub fn integer_parser() -> impl Parser<char, i64, Error = ParseError> + Clone {
             i64::from_str_radix(num.as_str(), base)
                 .ok()
                 .map(|v| v * sign)
-                .ok_or_else(|| ParseError::expected_input_found(span, std::iter::empty(), None))
+                .ok_or_else(|| ParseError::new(span, ParseErrorType::InvalidIntLiteral))
         })
-        .labelled(ParseErrorType::InvalidIntLiteral)
+        .map_err(|mut err| {
+            err.given_type = ParseErrorType::InvalidIntLiteral;
+            err
+        })
 }
 
 pub fn string_literal_parser() -> impl Parser<char, String, Error = ParseError> + Clone {
@@ -225,13 +210,13 @@ mod test {
         memory::{IndexedAddr, Label, SumAddress},
         parse::{
             components::{idx_address_parser, offset_label_parser, sum_address_parser},
-            ParseError, ParseErrorType,
         },
         register::{Proc, Register, GPR_NAMES},
     };
 
     use super::{
-        any_gpr_parser, endl, float_parser, float_register_parser, gpr_register_parser, integer_parser, string_literal_parser
+        any_gpr_parser, endl, float_parser, float_register_parser, gpr_register_parser,
+        integer_parser, string_literal_parser,
     };
 
     #[test]
@@ -251,34 +236,10 @@ mod test {
         assert_eq!(parser.parse("0d10"), Ok(10));
         assert_eq!(parser.parse("0o12"), Ok(10));
         assert_eq!(parser.parse("-0o12"), Ok(-10));
-        assert!(matches!(
-            parser.parse("1.2").unwrap_err()[0],
-            ParseError {
-                label: ParseErrorType::InvalidIntLiteral,
-                ..
-            }
-        ));
-        assert!(matches!(
-            parser.parse("-1.2").unwrap_err()[0],
-            ParseError {
-                label: ParseErrorType::InvalidIntLiteral,
-                ..
-            }
-        ));
-        assert!(matches!(
-            parser.parse("+12.").unwrap_err()[0],
-            ParseError {
-                label: ParseErrorType::InvalidIntLiteral,
-                ..
-            }
-        ));
-        assert!(matches!(
-            parser.parse("--21").unwrap_err()[0],
-            ParseError {
-                label: ParseErrorType::InvalidIntLiteral,
-                ..
-            }
-        ));
+        assert!( parser.parse("1.2").is_err());
+        assert!( parser.parse("-1.2").is_err());
+        assert!( parser.parse("+12.").is_err());
+        assert!( parser.parse("--12").is_err());
     }
 
     #[test]
@@ -434,7 +395,7 @@ mod test {
         assert!(matches!(parser.parse("0dA"), Err(_)));
         assert!(matches!(parser.parse("0xG"), Err(_)));
     }
-    
+
     #[test]
     fn test_float_parser() {
         let parser = float_parser().then_ignore(end());

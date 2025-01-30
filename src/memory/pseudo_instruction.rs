@@ -6,7 +6,6 @@ use crate::{
 
 use super::{Label, Memory, SumAddress};
 
-use chumsky::Error;
 use Instruction as I;
 
 impl Memory {
@@ -20,9 +19,7 @@ impl Memory {
         if let Some(ref label) = sum_addr.label {
             let addr = match Label::Name(label.to_owned()).get_address(self) {
                 Some(val) => val,
-                None => Err(ParseError::expected_input_found(span.clone(), std::iter::empty(), None).with_label(
-                    ParseErrorType::UndefinedLabel
-                ))?
+                None => Err(ParseError::new(span.clone(), ParseErrorType::UndefinedLabel))?
             };
             let ori = Instruction::OrImmediate((
                 Register::new_gpr(1),

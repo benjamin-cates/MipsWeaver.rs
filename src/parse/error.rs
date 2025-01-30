@@ -8,8 +8,9 @@ use crate::config::Version;
 pub struct ParseError {
     pub expected: BTreeSet<char>,
     pub span: Range<usize>,
-    pub label: ParseErrorType,
+    pub label: &'static str,
     pub found: Option<char>,
+    pub given_type: ParseErrorType,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -63,8 +64,20 @@ pub enum ParseErrorType {
     Unknown,
 }
 
+impl ParseError {
+    pub fn new(span: Range<usize>, given_type: ParseErrorType) -> Self {
+        Self {
+            span,
+            given_type,
+            expected: BTreeSet::new(),
+            label: "",
+            found: None,
+        }
+    }
+}
+
 impl Error<char> for ParseError {
-    type Label = ParseErrorType;
+    type Label = &'static str;
     type Span = Range<usize>;
     fn expected_input_found<Iter: IntoIterator<Item = Option<char>>>(
         span: Self::Span,
@@ -75,11 +88,12 @@ impl Error<char> for ParseError {
             expected: expected.into_iter().filter_map(|v| v).collect(),
             found: found,
             span: span,
-            label: ParseErrorType::Unknown,
+            label: "",
+            given_type: ParseErrorType::Unknown
         }
     }
     fn merge(self, other: Self) -> Self {
-        if self.label != ParseErrorType::Unknown {
+        if self.given_type != ParseErrorType::Unknown {
             self
         }
         else {
@@ -87,7 +101,7 @@ impl Error<char> for ParseError {
         }
     }
     fn with_label(mut self, label: Self::Label) -> Self {
-        if self.label == Self::Label::Unknown {
+        if self.label == "" {
             self.label = label;
         }
         self

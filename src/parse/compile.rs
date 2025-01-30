@@ -15,7 +15,7 @@ use super::{
     components::endl,
     data_section::{data_section_parser, DataElement},
     text_section::{parse_text_section, TextElement},
-    ParseError, ParseErrorType,
+    ParseError
 };
 
 #[derive(Debug, Clone)]
@@ -124,22 +124,22 @@ pub fn program_parser<'a>(cfg: &'a Config) -> impl Parser<char, Memory, Error = 
     let data = just(".data")
         .ignore_then(endl())
         .ignore_then(data_section_parser())
-        .labelled(ParseErrorType::Custom("Data section"))
+        .labelled("Data section")
         .map(|v| Section::Data(v));
     let kdata = just(".kdata")
         .ignore_then(endl())
         .ignore_then(data_section_parser())
-        .labelled(ParseErrorType::Custom("KData section"))
+        .labelled("KData section")
         .map(|v| Section::KData(v));
     let text = just(".text")
         .ignore_then(endl())
         .ignore_then(parse_text_section(cfg.version))
-        .labelled(ParseErrorType::Custom("Text section"))
+        .labelled("Text section")
         .map(|v| Section::Text(v));
     let ktext = just(".ktext")
         .ignore_then(endl())
         .ignore_then(parse_text_section(cfg.version))
-        .labelled(ParseErrorType::Custom("KText section"))
+        .labelled("KText section")
         .map(|v| Section::KText(v));
     let sections = choice((data, kdata, text, ktext))
         .separated_by(endl().or_not())

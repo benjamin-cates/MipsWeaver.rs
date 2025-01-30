@@ -1,7 +1,7 @@
 use chumsky::{
     prelude::{choice, filter, just},
     text::{ident, TextParser},
-    Error, Parser,
+    Parser,
 };
 
 use super::{
@@ -50,8 +50,7 @@ pub(crate) fn data_section_parser() -> impl Parser<char, Vec<DataElement>, Error
     let byte = integer_parser().validate(|int, span, emit| {
         if int > 255 || int < -128 {
             emit(
-                ParseError::expected_input_found(span, std::iter::empty(), None)
-                    .with_label(ParseErrorType::LitBounds(-128, 255)),
+                ParseError::new(span, ParseErrorType::LitBounds(-128, 255)),
             )
         }
         DataElement::Byte(int)
@@ -59,8 +58,7 @@ pub(crate) fn data_section_parser() -> impl Parser<char, Vec<DataElement>, Error
     let halfword = integer_parser().validate(|int, span, emit| {
         if int > 0xFFFF || int < -0x8000 {
             emit(
-                ParseError::expected_input_found(span, std::iter::empty(), None)
-                    .with_label(ParseErrorType::LitBounds(-0x8000, 0xFFFF)),
+                ParseError::new(span, ParseErrorType::LitBounds(-0x8000, 0xFFFF)),
             )
         }
         DataElement::Halfword(int)
@@ -68,8 +66,7 @@ pub(crate) fn data_section_parser() -> impl Parser<char, Vec<DataElement>, Error
     let word = integer_parser().validate(|int, span, emit| {
         if int > 0xFFFFFFFF || int < -0x80000000 {
             emit(
-                ParseError::expected_input_found(span, std::iter::empty(), None)
-                    .with_label(ParseErrorType::LitBounds(-0x80000000, 0xFFFFFFFF)),
+                ParseError::new(span, ParseErrorType::LitBounds(-0x80000000, 0xFFFFFFFF)),
             )
         }
         DataElement::Word(int)
@@ -110,8 +107,7 @@ pub(crate) fn data_section_parser() -> impl Parser<char, Vec<DataElement>, Error
             .ignore_then(integer_parser().padded().validate(|val, span, emit| {
                 if val < 0 || val >= 65536 {
                     emit(
-                        ParseError::expected_input_found(span.clone(), std::iter::empty(), None)
-                            .with_label(ParseErrorType::LitBounds(0, 65535)),
+                        ParseError::new(span.clone(), ParseErrorType::LitBounds(0, 65535)),
                     )
                 }
                 DataElement::Space(val as usize)

@@ -2,7 +2,7 @@ use std::{cell::{Cell, RefCell}, collections::HashMap, ops::Range, rc::Rc, sync:
 
 use chumsky::{
     prelude::{empty, just, one_of},
-    BoxedParser, Error, Parser,
+    BoxedParser, Parser,
 };
 
 use crate::{
@@ -121,8 +121,7 @@ fn lit_parser_min_max<'a>(
         integer_parser().validate(move |num, span: Range<usize>, emit| {
             if num > max || num < min {
                 emit(
-                    ParseError::expected_input_found(span, std::iter::empty(), None)
-                        .with_label(ParseErrorType::LitBounds(min, max)),
+                    ParseError::new(span, ParseErrorType::LitBounds(min, max)),
                 )
             }
             Immediate(num)
@@ -140,8 +139,7 @@ fn valid_fpr_type(fpr_type: FloatType) -> impl Parser<char, Register, Error = Pa
         };
         if !valid {
             emit(
-                ParseError::expected_input_found(span, std::iter::empty(), None)
-                    .with_label(ParseErrorType::WrongProcessor),
+                ParseError::new(span, ParseErrorType::WrongProcessor),
             )
         }
         reg
@@ -169,8 +167,7 @@ pub fn instruction_parser(
             match INSTRUCTION_LIST.binary_search(&s.to_lowercase().as_str()) {
                 Ok(s) => Ok(s),
                 Err(_) => Err(
-                    ParseError::expected_input_found(span, std::iter::empty(), None)
-                        .with_label(ParseErrorType::InvalidInstruction),
+                    ParseError::new(span, ParseErrorType::InvalidInstruction),
                 ),
             }
         });
@@ -340,8 +337,7 @@ fn get_inst_parser(
                 .try_map(|(a, b, c), span| {
                     if a != c {
                         Err(
-                            ParseError::expected_input_found(span, std::iter::empty(), None)
-                                .with_label(ParseErrorType::InvalidCommand),
+                            ParseError::new(span, ParseErrorType::InvalidCommand),
                         )
                     } else {
                         Ok((a, b, c))
@@ -361,8 +357,7 @@ fn get_inst_parser(
                 .try_map(|(a, b, c), span| {
                     if a != c {
                         Err(
-                            ParseError::expected_input_found(span, std::iter::empty(), None)
-                                .with_label(ParseErrorType::InvalidCommand),
+                            ParseError::new(span, ParseErrorType::InvalidCommand),
                         )
                     } else {
                         Ok((a, b, c))
@@ -426,8 +421,7 @@ fn get_inst_parser(
             I::ExtractBits((a, b, c, d)) => {
                 if c.0 + d.0 - 1 > 32 || c.0 + d.0 - 1 < 0 {
                     Err(
-                        ParseError::expected_input_found(span, std::iter::empty(), None)
-                            .with_label(ParseErrorType::LitBounds(0, 32 - c.0)),
+                        ParseError::new(span, ParseErrorType::LitBounds(0, 32 - c.0)),
                     )
                 } else {
                     Ok(I::ExtractBits((a, b, c, d)))
@@ -454,8 +448,7 @@ fn get_inst_parser(
             I::InsertBits((a, b, c, d)) => {
                 if c.0 + d.0 - 1 > 32 || c.0 + d.0 - 1 < 0 {
                     Err(
-                        ParseError::expected_input_found(span, std::iter::empty(), None)
-                            .with_label(ParseErrorType::LitBounds(0, 32 - c.0)),
+                        ParseError::new(span, ParseErrorType::LitBounds(0, 32 - c.0)),
                     )
                 } else {
                     Ok(I::InsertBits((a, b, c, d)))
