@@ -142,7 +142,7 @@ pub fn program_parser<'a>(cfg: &'a Config) -> impl Parser<char, Memory, Error = 
         .labelled(ParseErrorType::Custom("KText section"))
         .map(|v| Section::KText(v));
     let sections = choice((data, kdata, text, ktext))
-        .separated_by(endl())
+        .separated_by(endl().or_not())
         .allow_leading()
         .allow_trailing();
     sections
@@ -173,4 +173,61 @@ pub fn make_program(cfg: &Config, data: Vec<DataElement>, kdata: Vec<DataElement
     write_text_segment(&cfg, &mut mem, &mut linker_tasks, 0x8000_0000, ktext)?;
     mem.linker(linker_tasks)?;
     Ok(mem)
+}
+
+
+#[cfg(test)]
+fn data_bytes(bytes: &[u8], start: u32, labels: &[(String, u32)]) -> Memory {
+    let mut mem = Memory::default();
+    for (i, byte) in bytes.iter().cloned().enumerate() {
+        mem.store_byte(start + i as u32, byte).unwrap();
+    }
+    mem.labels.extend(labels.iter().cloned());
+    mem
+}
+
+#[cfg(test)]
+#[test]
+fn test_write_data_segment() {
+    assert_eq!(
+        {
+            let mut mem = Memory::default();
+            write_data_segment(
+                &mut mem,
+                0x1001_0000,
+                vec![
+                    DataElement::Word(1),
+                    DataElement::Word(3),
+                    DataElement::AsciiZ(String::from("hai")),
+                    DataElement::Ascii(String::from("hol")),
+                    DataElement::Label(String::from("hola")),
+                    DataElement::Halfword(257),
+                    DataElement::Byte(0xF8),
+                    DataElement::Byte(0x9F),
+                    DataElement::Label(String::from("ya")),
+                    DataElement::Space(5),
+                    DataElement::Byte(0xFF),
+                    DataElement::Float(0.3),
+                    DataElement::Byte(0xFF),
+                    DataElement::Label(String::from("yee")),
+                    DataElement::Double(0.3),
+                ],
+            );
+            mem
+        },
+        data_bytes(
+            &[
+                0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, b'h', b'a', b'i', 0x00, b'h',
+                b'o', b'l', 0x00, 0x01, 0x01, 0xF8, 0x9F, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF,
+                0x00, 0x00, 0x9A, 0x99, 0x99, 0x3E, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0xD3, 0x3F,
+            ],
+            0x1001_0000,
+            &[
+                ("hola".into(), 0x1001_0010),
+                ("ya".into(), 0x1001_0014),
+                ("yee".into(), 0x1001_0028)
+            ]
+        )
+    );
 }

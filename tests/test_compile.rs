@@ -18,11 +18,10 @@ fn test_compile_success() {
         processor: Processor::Cop(1),
     };
     assert_eq!(
-        parser.parse(".data\n.word 1\nlabel: abs.s $0, $0").unwrap(),
+        parser.parse(".data\n.word 1\n.text\nlabel:\n abs.s $0, $0").unwrap(),
         make_program(
             cfg,
             vec![DataElement::Word(1)],
-            vec![],
             vec![],
             vec![
                 TextElement::Label(String::from("label")),
@@ -30,7 +29,8 @@ fn test_compile_success() {
                     0..0,
                     Instruction::AbsFloat(FloatType::Single, (float_0, float_0))
                 ))
-            ]
+            ],
+            vec![],
         )
         .unwrap()
     );

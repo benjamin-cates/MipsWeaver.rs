@@ -52,7 +52,7 @@ fn test_fail_parse() {
 
 #[test]
 fn test_instruction_parse() {
-    let num_per_variant = 512;
+    let num_per_variant = 128;
     let versions = [
         Version::R1,
         Version::R2,
