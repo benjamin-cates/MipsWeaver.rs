@@ -1,7 +1,12 @@
 use std::ops::Range;
 
 use crate::{
-    config::{Config, Version}, parse::ParseErrorType, instruction::{Immediate, Instruction, Sign}, parse::{ParseError}, register::{Proc, Register}, util::fits_bits
+    config::{Config, Version},
+    instruction::{Immediate, Instruction, Sign},
+    parse::ParseError,
+    parse::ParseErrorType,
+    register::{Proc, Register},
+    util::fits_bits,
 };
 
 use crate::{Label, Memory, SumAddress};
@@ -19,18 +24,22 @@ impl Memory {
         if let Some(ref label) = sum_addr.label {
             let addr = match Label::Name(label.to_owned()).get_address(self) {
                 Some(val) => val,
-                None => Err(ParseError::new(span.clone(), ParseErrorType::UndefinedLabel))?
+                None => Err(ParseError::new(
+                    span.clone(),
+                    ParseErrorType::UndefinedLabel,
+                ))?,
             };
             let offset = sum_addr.offset.unwrap_or(0) as u32;
             let ori = Instruction::OrImmediate((
                 Register::new_gpr(1),
-                Register::new_gpr(0),
+                Register::new_gpr(1),
                 Immediate(((addr.wrapping_add(offset)) & 0xFFFF) as i64),
             ));
             let lui = Instruction::LoadUpperImmediate((
                 Register::new_gpr(1),
                 Immediate(((addr.wrapping_add(offset)) & 0xFFFF0000) as i64 >> 16),
             ));
+            sum_addr.offset = None;
             sum_addr.label = None;
             // If there is a register, add another add operation
             if let Some(reg) = sum_addr.register {
@@ -41,18 +50,18 @@ impl Memory {
                 );
                 // Set sum address to reference register 1
                 sum_addr.register = Some(Register::new_gpr(1));
-                return Ok([ori, lui, add, I::Nop]);
+                return Ok([lui, ori, add, I::Nop]);
             }
             // Set sum address to reference register 1
             sum_addr.register = Some(Register::new_gpr(1));
-            return Ok([ori, lui, I::Nop, I::Nop]);
+            return Ok([lui, ori, I::Nop, I::Nop]);
         } else if let Some(offset) = sum_addr.offset {
             // If the offset does not fit within current slot
             if !fits_bits(offset as i64, offset_len, Sign::Signed) {
                 // Store in $at
                 let ori = Instruction::OrImmediate((
                     Register::new_gpr(1),
-                    Register::new_gpr(0),
+                    Register::new_gpr(1),
                     Immediate(offset as i64 & 0xFFFF),
                 ));
                 // If it does not fit in 16 bits, use ori then lui to get 32 bits
@@ -68,10 +77,10 @@ impl Memory {
                             (Register::new_gpr(1), Register::new_gpr(1), reg),
                         );
                         sum_addr.register = Some(Register::new_gpr(1));
-                        return Ok([ori, lui, add, I::Nop]);
+                        return Ok([lui, ori, add, I::Nop]);
                     }
                     sum_addr.offset = None;
-                    return Ok([ori, lui, I::Nop, I::Nop]);
+                    return Ok([lui, ori, I::Nop, I::Nop]);
                 } else {
                     if let Some(reg) = sum_addr.register {
                         let add = Instruction::Add(
@@ -112,10 +121,7 @@ fn overflow_immediate(
     }
 }
 use Immediate as Imm;
-fn append_to_pseudo_list(
-    mut list: [Instruction; 4],
-    inst: Instruction,
-) -> [Instruction; 4] {
+fn append_to_pseudo_list(mut list: [Instruction; 4], inst: Instruction) -> [Instruction; 4] {
     if list[0] == I::Nop {
         list[0] = inst;
     } else if list[1] == I::Nop {
@@ -147,6 +153,14 @@ impl Memory {
             I::Cache((x, mut sum_addr)) => append_to_pseudo_list(
                 self.sum_addr_handler(16, span, &mut sum_addr)?,
                 I::Cache((x, sum_addr)),
+            ),
+            I::LoadAddress((reg, mut sum_addr)) => append_to_pseudo_list(
+                self.sum_addr_handler(0, span, &mut sum_addr)?,
+                I::Or((
+                    reg,
+                    Register(Proc::GPR, 0),
+                    sum_addr.register.unwrap_or(Register(Proc::GPR, 1)),
+                )),
             ),
             I::LoadInt(s, it, (reg, mut sum_addr)) => append_to_pseudo_list(
                 self.sum_addr_handler(16, span, &mut sum_addr)?,

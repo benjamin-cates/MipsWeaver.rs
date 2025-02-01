@@ -1,6 +1,9 @@
 use crate::instruction::Sign;
 
 pub(crate) fn fits_bits(imm: i64, bits: usize, sign: Sign) -> bool {
+    if bits == 0 {
+        return false;
+    }
     if sign == Sign::Signed {
         imm < 1 << (bits - 1) && imm >= -(1 << (bits - 1))
     } else {

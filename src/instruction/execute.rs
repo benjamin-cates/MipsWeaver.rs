@@ -557,6 +557,11 @@ impl Instruction {
                 }
                 return Ok(ExecutionAction::Jump(mem.reg(reg.id())));
             }
+            I::LoadAddress((rt, ref sum_addr)) => {
+                mem.history.push(mem.reg(rt.id()));
+                let address = sum_addr.evaluate(&mem);
+                mem.set_reg(rt.id(), address);
+            }
             I::LoadInt(sign, it, (rt, ref sum_addr)) => {
                 mem.history.push(mem.reg(rt.id()));
                 let address = sum_addr.evaluate(&mem);

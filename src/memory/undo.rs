@@ -48,6 +48,7 @@ impl Memory {
             | I::ExtractBits((dst, ..))
             | I::InsertBits((dst, ..))
             | I::JumpLinkRegister(_, (dst, _))
+            | I::LoadAddress((dst, _))
             | I::LoadInt(_, _, (dst, _))
             | I::LoadScaledAddress((dst, ..))
             | I::LoadWordLeft((dst, _))

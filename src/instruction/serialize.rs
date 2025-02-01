@@ -1483,5 +1483,6 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
         I::XorImmediate((rt, rs, Imm(imm))) => {
             build!((0b001110, 6), rs.enc(), rt.enc(), (imm as u32, 16))
         }
+        _ => build!((0,32)),
     }
 }

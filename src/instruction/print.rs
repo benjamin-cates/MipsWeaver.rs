@@ -269,6 +269,7 @@ impl Display for Instruction {
             I::JumpIndexedCompact(false, (rt, Imm(offset))) => w!(f, "jic {rt}, {offset}"),
             I::JumpRegister(false, rs) => w!(f, "jr {rs}"),
             I::JumpRegister(true, rs) => w!(f, "jr.hb {rs}"),
+            I::LoadAddress((rt, ref sum_addr)) => w!(f, "la {rt}, {sum_addr}"),
             I::LoadInt(sign, it, (rt, ref sum_addr)) => w!(f, "l{it}{sign} {rt}, {sum_addr}"),
             I::LoadCop(Proc::Cop1, it, (rt, ref sum_addr)) => {
                 w!(f, "l{it}c1 {rt}, {sum_addr}")

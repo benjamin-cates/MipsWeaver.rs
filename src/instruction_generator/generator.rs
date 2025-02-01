@@ -285,6 +285,7 @@ pub fn instruction_template_list() -> Vec<Box<dyn FnMut([u32; 4]) -> (String, In
         ),
         one_gpr(|a| I::JumpRegister(false, a), "jr"),
         one_gpr(|a| I::JumpRegister(true, a), "jr.hb"),
+        reg_sumaddr(I::LoadAddress, "la", 16),
         reg_sumaddr(|a| I::LoadInt(S, Byte, a), "lb", 16),
         reg_sumaddr(|a| I::LoadInt(U, Byte, a), "lbu", 16),
         reg_sumaddr(|a| I::LoadInt(S, Halfword, a), "lh", 16),

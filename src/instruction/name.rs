@@ -147,6 +147,7 @@ const NAME_MAPPING: &[(&'static str, &'static str)] = &[
     ("jic", "Jump indexed, compact"), 
     ("jr", "Jump to register"), 
     ("jr.hb", "Jump to register with hazard barrier"), 
+    ("la", "Load address"), 
     ("lb", "Load byte"), 
     ("lbu", "Load byte unsigned"), 
     ("ldc1", "Load doubleword to floating point"), 

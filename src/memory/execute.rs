@@ -127,5 +127,13 @@ mod tests {
                 .unwrap_err(),
             RuntimeException::Exit(8)
         );
+        assert_eq!(
+            parser
+                .parse(".data\n.word\nhi: 16, 8\n.text\nla $4, hi+4\nori $2, $2, 17\nsyscall\n")
+                .unwrap()
+                .run_debug()
+                .unwrap_err(),
+            RuntimeException::Exit(0x1001_0004)
+        );
     }
 }

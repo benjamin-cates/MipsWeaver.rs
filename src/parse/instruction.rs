@@ -574,6 +574,9 @@ fn get_inst_parser(
             let hb = name == "jr.hb";
             args_parser_1(&gpr, move |args| I::JumpRegister(hb, args))
         }
+        "la" => {
+            args_parser_2(&gpr, &to_boxy(sum_address_parser()), |args| I::LoadAddress(args))
+        }
         "lb" | "lbu" | "lh" | "lhu" | "lw" | "lwu" => {
             let it = name[1..2].parse().unwrap();
             args_parser_2(&gpr, &to_boxy(sum_address_parser()), move |args| {
