@@ -1,7 +1,6 @@
 use crate::{
     instruction::{Immediate, Instruction},
     register::Proc,
-    syscall::undo_syscall,
 };
 
 use super::Memory;
@@ -243,7 +242,7 @@ impl Memory {
                 self.set_reg(id2, val2);
             }
             I::Syscall(..) => {
-                undo_syscall(self);
+                self.undo_syscall();
             }
             // Instructions that don't change memory state
             I::Break

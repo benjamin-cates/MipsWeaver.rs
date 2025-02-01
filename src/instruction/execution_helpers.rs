@@ -1,4 +1,4 @@
-use crate::memory::{FloatType, Memory};
+use crate::{FloatType, memory::Memory};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Specifies the action to take after the execution of a single instruction

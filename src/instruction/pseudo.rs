@@ -3,7 +3,8 @@ use crate::config::Version;
 use crate::instruction::types::Likely;
 use crate::instruction::Comparison;
 use crate::instruction::Instruction;
-use crate::memory::IntType;
+use crate::IntType;
+use crate::FloatType;
 use crate::parse::InstructionErrReason;
 use crate::register::Proc;
 use crate::register::Register;
@@ -11,7 +12,6 @@ use crate::register::Register;
 use super::Immediate;
 use super::Sign;
 use super::SumAddress;
-use crate::memory::FloatType;
 
 /// Instruction type identified by [`Instruction::instruction_type`].
 #[derive(Debug, Clone, Eq, PartialEq)]

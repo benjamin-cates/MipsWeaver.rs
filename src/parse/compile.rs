@@ -8,7 +8,7 @@ use chumsky::{
 use crate::{
     config::Config,
     instruction::Instruction,
-    memory::{linker::LinkerTask, Memory},
+    memory::{LinkerTask, Memory},
 };
 
 use super::{

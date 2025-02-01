@@ -1,5 +1,5 @@
 use chumsky::Parser;
-use mips_weaver::{config::Config, parse::program_parser};
+use mips_weaver::{Config, parse::program_parser};
 
 #[test]
 fn test_afl_crashes() {

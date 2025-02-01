@@ -1,6 +1,6 @@
 use chumsky::{prelude::end, Parser};
 use mips_weaver::{
-    config::{Config, Version}, instruction::Instruction, instruction_generator::random_instruction_iterator, memory::{Memory}, parse::{instruction_parser, program_parser}
+    Config, Version, Instruction, random_instruction_iterator, Memory, parse::{instruction_parser, program_parser}
 };
 
 fn bits(s: &str) -> u32 {
@@ -693,11 +693,11 @@ const PSEUDO_TESTS: &[(&'static str, &[&'static str])] = &[
 #[test]
 fn test_serialize() {
     let cfgr5 = Config {
-        version: mips_weaver::config::Version::R5,
+        version: mips_weaver::Version::R5,
         ..Default::default()
     };
     let cfgr6 = Config {
-        version: mips_weaver::config::Version::R6,
+        version: mips_weaver::Version::R6,
         ..Default::default()
     };
     let parser = instruction_parser(Version::R5).then_ignore(end());
@@ -713,7 +713,7 @@ fn test_serialize() {
 #[test]
 fn test_serialize_random() {
     let cfgr5 = Config {
-        version: mips_weaver::config::Version::R5,
+        version: mips_weaver::Version::R5,
         ..Default::default()
     };
     let parser = instruction_parser(Version::R5).then_ignore(end());

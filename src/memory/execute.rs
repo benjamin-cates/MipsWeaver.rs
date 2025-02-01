@@ -1,4 +1,4 @@
-use crate::{err::RuntimeException, instruction::execution_helpers::ExecutionAction};
+use crate::{instruction::execution_helpers::ExecutionAction, RuntimeException};
 
 use super::Memory;
 
@@ -36,7 +36,9 @@ impl Memory {
                 self.program_counter += 4;
             }
             Ok(ExecutionAction::Jump(address)) => {
-                if address < 0x0040_0000 || (address - 0x0040_0000) as usize > self.instructions.len() * 4 {
+                if address < 0x0040_0000
+                    || (address - 0x0040_0000) as usize > self.instructions.len() * 4
+                {
                     return Err(RuntimeException::ReservedInstruction);
                 }
                 self.history

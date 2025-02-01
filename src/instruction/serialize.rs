@@ -1,5 +1,5 @@
 use crate::{
-    config::{Config, Version}, instruction::{types::Likely, Comparison, Immediate}, memory::{linker::LinkerTask, FloatType, IntType}, register::{Proc, Register}, util
+    config::{Config, Version}, instruction::{types::Likely, Comparison, Immediate}, memory::{LinkerTask}, FloatType, IntType, register::{Proc, Register}, util
 };
 
 use super::{Instruction, Label, Sign, SumAddress};

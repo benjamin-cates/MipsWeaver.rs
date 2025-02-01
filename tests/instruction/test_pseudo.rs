@@ -1,7 +1,7 @@
 use chumsky::Parser;
-use mips_weaver::config::Config;
-use mips_weaver::config::Version;
-use mips_weaver::instruction::InstructionType;
+use mips_weaver::Config;
+use mips_weaver::Version;
+use mips_weaver::InstructionType;
 use mips_weaver::parse::instruction_parser;
 
 #[test]
@@ -714,11 +714,11 @@ fn test_pseudo_immediate() {
         "sdc2 $0, -0x401($0)",
     ];
     let cfgr5 = Config {
-        version: mips_weaver::config::Version::R5,
+        version: mips_weaver::Version::R5,
         ..Default::default()
     };
     let cfgr6 = Config {
-        version: mips_weaver::config::Version::R6,
+        version: mips_weaver::Version::R6,
         ..Default::default()
     };
     let parser5 = instruction_parser(Version::R5);

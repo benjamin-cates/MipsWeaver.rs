@@ -63,6 +63,7 @@ impl PartialEq for VirtualMemory {
     }
 }
 
+/// Stores state of a MIPS program, including registers, main memory, io, and config
 #[derive(Clone, PartialEq, Debug)]
 pub struct Memory {
     pub mem_map: VirtualMemory,
@@ -111,30 +112,4 @@ impl Default for Memory {
         out.registers[29] = 0x7FFF_FFF8;
         out
     }
-}
-
-/// Enum that discriminates between types that floating point registers can store
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum FloatType {
-    /// Equivalent to f64 in Rust
-    Double,
-    /// Equivalent to f32 in Rust
-    Single,
-    /// Similar to (f32, f32) in Rust
-    PairedSingle,
-}
-
-/// Enum that discriminates between types that integers can be.
-/// Sign is not stored in the type itself because in MIPS, sign interpretation
-/// is dependent on the instruction used.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum IntType {
-    /// 1 byte, can be from -128 to 127 or 0 to 256 depending on interpretation.
-    Byte,
-    /// 2 bytes
-    Halfword,
-    /// 4 bytes (size of registers and pointers)
-    Word,
-    /// 8 bytes (size of two registers)
-    Doubleword,
 }

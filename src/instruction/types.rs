@@ -2,10 +2,11 @@ use crate::instruction::Immediate;
 use crate::instruction::IndexedAddr;
 use crate::instruction::Label;
 use crate::instruction::SumAddress;
-use crate::memory::FloatType;
-use crate::memory::IntType;
+use crate::FloatType;
+use crate::IntType;
 use crate::register::{Proc, Register};
 
+/// Whether an instruction is signed or unsigned
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Sign {
     /// Arithmetic and comparison operations will assume the values of the registers and memory are signed by two's complement.
@@ -23,6 +24,7 @@ pub enum Likely {
     Normal,
 }
 
+/// Enum between types of comparison
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Comparison {
     /// Equal
@@ -181,7 +183,7 @@ pub const INSTRUCTION_LIST: [&'static str; 135] = [
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Instruction {
     /// For instructions `abs.s`, `abs.d`, and `abs.ps`
-    /// Operation is fpr[dst] = abs(fpr[rs])
+    /// Operation is fpr\[dst\] = abs(fpr\[rs\])
     AbsFloat(FloatType, (Register, Register)),
 
     /// For instructions `add` and `addu`.
@@ -725,7 +727,7 @@ pub enum Instruction {
     ),
 
     /// For instruction `sigrie`.
-    /// Signals a [`crate::err::RuntimeException::ReservedInstruction`] exception.
+    /// Signals a [`crate::memory::RuntimeException::ReservedInstruction`] exception.
     SigReservedInstruction(Immediate),
 
     /// For instruction `sll`.

@@ -6,7 +6,7 @@ use crate::{
     util::fits_bits,
 };
 
-use super::{Label, Memory};
+use crate::{Label, Memory};
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum LinkerTask {

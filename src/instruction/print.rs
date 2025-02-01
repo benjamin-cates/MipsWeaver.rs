@@ -1,6 +1,6 @@
 use crate::{
     instruction::{types::Likely, Comparison, Immediate},
-    memory::{FloatType, IntType},
+    FloatType, IntType,
     register::{Proc, Register},
 };
 use std::fmt::Display;
@@ -302,10 +302,10 @@ impl Display for Instruction {
             }
             I::MultiplyAddFloatFused(fmt, (fd, fs, ft)) => w!(f, "maddf.{fmt} {fd}, {fs}, {ft}"),
             I::MultiplySubFloatFused(fmt, (fd, fs, ft)) => w!(f, "msubf.{fmt} {fd}, {fs}, {ft}"),
-            I::MaxFloat(fmt, true, (fd, ft, fs)) => w!(f, "maxa.{fmt}, {fd}, {fs}, {ft}"),
-            I::MaxFloat(fmt, false, (fd, ft, fs)) => w!(f, "max.{fmt}, {fd}, {fs}, {ft}"),
-            I::MinFloat(fmt, true, (fd, ft, fs)) => w!(f, "mina.{fmt}, {fd}, {fs}, {ft}"),
-            I::MinFloat(fmt, false, (fd, ft, fs)) => w!(f, "min.{fmt}, {fd}, {fs}, {ft}"),
+            I::MaxFloat(fmt, true, (fd, fs, ft)) => w!(f, "maxa.{fmt} {fd}, {fs}, {ft}"),
+            I::MaxFloat(fmt, false, (fd, fs, ft)) => w!(f, "max.{fmt} {fd}, {fs}, {ft}"),
+            I::MinFloat(fmt, true, (fd, fs, ft)) => w!(f, "mina.{fmt} {fd}, {fs}, {ft}"),
+            I::MinFloat(fmt, false, (fd, fs, ft)) => w!(f, "min.{fmt} {fd}, {fs}, {ft}"),
             I::MoveFromCop(Proc::Cop0, (rt, rd, Imm(sel))) if sel != 0 => {
                 w!(f, "mfc0 {rt}, {rd}, {sel}")
             }
@@ -335,10 +335,10 @@ impl Display for Instruction {
             I::MoveOnFloatCondition(None, true, (rd, rs, Imm(cc))) => {
                 w!(f, "movt {rd}, {rs}, {cc}")
             }
-            I::MoveOnNotZero(Some(fmt), (rd, rs, rt)) => w!(f, "movn.{fmt} {rd}¸ {rs}, {rt}"),
-            I::MoveOnNotZero(None, (rd, rs, rt)) => w!(f, "movn {rd}¸ {rs}, {rt}"),
-            I::MoveOnZero(Some(fmt), (rd, rs, rt)) => w!(f, "movz.{fmt} {rd}¸ {rs}, {rt}"),
-            I::MoveOnZero(None, (rd, rs, rt)) => w!(f, "movz {rd}¸ {rs}, {rt}"),
+            I::MoveOnNotZero(Some(fmt), (rd, rs, rt)) => w!(f, "movn.{fmt} {rd}, {rs}, {rt}"),
+            I::MoveOnNotZero(None, (rd, rs, rt)) => w!(f, "movn {rd}, {rs}, {rt}"),
+            I::MoveOnZero(Some(fmt), (rd, rs, rt)) => w!(f, "movz.{fmt} {rd}, {rs}, {rt}"),
+            I::MoveOnZero(None, (rd, rs, rt)) => w!(f, "movz {rd}, {rs}, {rt}"),
             I::MoveToCop(Proc::Cop0, (rt, rd, Imm(sel))) if sel != 0 => {
                 w!(f, "mtc0 {rt}, {rd}, {sel}")
             }
@@ -355,7 +355,7 @@ impl Display for Instruction {
             I::MoveToHiCop(..) => unreachable!(),
             I::MoveToHi(rd) => w!(f, "mthi {rd}"),
             I::MoveToLo(rd) => w!(f, "mtlo {rd}"),
-            I::MulOld((rd, rs, rt)) => w!(f, "{rd}, {rs}, {rt}"),
+            I::MulOld((rd, rs, rt)) => w!(f, "mul {rd}, {rs}, {rt}"),
             I::MulR6(true, sign, (rd, rs, rt)) => w!(f, "muh{sign} {rd}, {rs}, {rt}"),
             I::MulR6(false, sign, (rd, rs, rt)) => w!(f, "mul{sign} {rd}, {rs}, {rt}"),
             I::MulFloat(fmt, (fd, fs, ft)) => w!(f, "mul.{fmt} {fd}, {fs}, {ft}"),
@@ -394,7 +394,7 @@ impl Display for Instruction {
             I::StoreIndexedUnalignedCop1(_, (rt, idx_addr)) => w!(f, "suxc1 {rt}, {idx_addr}"),
             I::StoreConditional((rt, ref sum_addr)) => w!(f, "sc {rt}, {sum_addr}"),
             I::StoreConditionalPairedWord((rt, rd, ref sum_addr)) => {
-                w!(f, "scwp {rt}, {rd}, {sum_addr}")
+                w!(f, "scwp {rt}, {rd}, ({sum_addr})")
             }
             I::SwDebugBreak(Imm(code)) => w!(f, "sdbbp {code}"),
             I::SignExtend(it, (rd, rt)) => w!(f, "se{it} {rd}, {rt}"),

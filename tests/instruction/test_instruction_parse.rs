@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 
 use chumsky::prelude::end;
 use chumsky::{BoxedParser, Parser};
-use mips_weaver::config::Version;
+use mips_weaver::Version;
 use mips_weaver::parse::instruction_parser;
 
-use mips_weaver::instruction_generator::random_instruction_iterator;
+use mips_weaver::random_instruction_iterator;
 
 const BOUND_FAILS: &[&'static str] = &[
     "addi $0, $0, 0x80000000",

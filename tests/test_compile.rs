@@ -1,13 +1,13 @@
 use chumsky::Parser;
-use mips_weaver::config::Config;
-use mips_weaver::instruction::Instruction;
-use mips_weaver::memory::FloatType;
+use mips_weaver::Config;
+use mips_weaver::Instruction;
+use mips_weaver::FloatType;
 use mips_weaver::parse::make_program;
 use mips_weaver::parse::program_parser;
 use mips_weaver::parse::DataElement;
 use mips_weaver::parse::TextElement;
-use mips_weaver::register::Proc;
-use mips_weaver::register::Register;
+use mips_weaver::Proc;
+use mips_weaver::Register;
 
 #[test]
 fn test_compile_success() {

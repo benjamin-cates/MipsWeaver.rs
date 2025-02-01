@@ -10,10 +10,12 @@ mod types;
 #[macro_use]
 pub(crate) mod execution_helpers;
 
-pub use super::memory::IndexedAddr;
-pub use super::memory::Label;
-pub use super::memory::SumAddress;
+pub use args_schema::IndexedAddr;
+pub use args_schema::SumAddress;
+pub use args_schema::Label;
 pub use args_schema::Immediate;
+pub use args_schema::FloatType;
+pub use args_schema::IntType;
 pub use pseudo::InstructionType;
 pub use types::Comparison;
 pub use types::Instruction;

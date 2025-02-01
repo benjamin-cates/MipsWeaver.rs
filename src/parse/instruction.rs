@@ -14,7 +14,7 @@ use chumsky::{
 use crate::{
     config::Version,
     instruction::{Comparison, Immediate, Instruction, Likely, Sign},
-    memory::{FloatType, IntType},
+    FloatType, IntType,
     parse::{
         components::{
             aligned_offset_label_parser, any_gpr_parser, any_integer_reg_parser,

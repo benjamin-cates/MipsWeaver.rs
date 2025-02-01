@@ -5,7 +5,7 @@ use super::components::*;
 use crate::{
     config::Version,
     instruction::{Comparison, Immediate, Instruction, Likely, Sign},
-    memory::{FloatType, IntType},
+    FloatType, IntType,
     register::{Proc, Register},
 };
 
@@ -255,8 +255,8 @@ pub fn instruction_template_list() -> Vec<Box<dyn FnMut([u32; 4]) -> (String, In
             (1, 16),
             (1, 16),
         ),
-        gen_single_arg::<LabelRand>(Version::R5, |a| I::Jump(a), "j", (0, (1 << 26) - 1)),
-        gen_single_arg::<LabelRand>(Version::R5, |a| I::JumpLink(a), "jal", (0, (1 << 26) - 1)),
+        gen_single_arg::<AlignedLabelRand>(Version::R5, |a| I::Jump(a), "j", (0, (1 << 26) - 1)),
+        gen_single_arg::<AlignedLabelRand>(Version::R5, |a| I::JumpLink(a), "jal", (0, (1 << 26) - 1)),
         one_gpr(
             |a| I::JumpLinkRegister(false, (Register::new_gpr(31), a)),
             "jalr",
@@ -267,7 +267,7 @@ pub fn instruction_template_list() -> Vec<Box<dyn FnMut([u32; 4]) -> (String, In
         ),
         two_gpr(|a| I::JumpLinkRegister(false, a), "jalr"),
         two_gpr(|a| I::JumpLinkRegister(true, a), "jalr.hb"),
-        gen_single_arg::<LabelRand>(
+        gen_single_arg::<AlignedLabelRand>(
             Version::R5,
             |a| I::JumpLinkExchange(a),
             "jalx",

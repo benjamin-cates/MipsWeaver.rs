@@ -1,5 +1,5 @@
 use chumsky::Parser;
-use mips_weaver::{config::Config, instruction_generator::random_instruction_iterator, parse::program_parser};
+use mips_weaver::{Config, random_instruction_iterator, parse::program_parser};
 
 
 #[test]

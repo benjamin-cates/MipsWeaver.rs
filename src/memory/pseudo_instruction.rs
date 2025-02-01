@@ -4,7 +4,7 @@ use crate::{
     config::{Config, Version}, parse::ParseErrorType, instruction::{Immediate, Instruction, Sign}, parse::{ParseError}, register::{Proc, Register}, util::fits_bits
 };
 
-use super::{Label, Memory, SumAddress};
+use crate::{Label, Memory, SumAddress};
 
 use Instruction as I;
 

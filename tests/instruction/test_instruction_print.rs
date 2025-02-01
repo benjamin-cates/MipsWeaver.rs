@@ -1,29 +1,33 @@
-use chumsky::Parser;
-use mips_weaver::{config::{Version}, parse::instruction_parser};
+use std::collections::BTreeMap;
+
+use chumsky::{BoxedParser, Parser};
+use mips_weaver::{parse::instruction_parser, random_instruction_iterator, Version};
 
 #[test]
 fn test_instruction_print() {
-    let matchers = [
-        "abs.s $f0, $f2",
-        "abs.d $f0, $f2",
-        "abs.ps $f0, $f2",
-        "add $zero, $s1, $t1",
-        "addu $s0, $ra, $t1",
-        "addi $4, $2, -1",
-        "addiu $s1, $t0, 4",
-        "add.s $f1, $f31, $f2",
-        "add.d $f8, $f21, $f0",
-        "add.ps $f8, $f21, $f0",
-        "addiupc $s0, 262143",
-        "addiupc $s0, 0",
+    let versions = [
+        Version::R1,
+        Version::R2,
+        Version::R3,
+        Version::R4,
+        Version::R5,
+        Version::R6,
     ];
-    let parser = instruction_parser(Version::R5);
-    for case in matchers {
+    let version_map = (0..6)
+        .map(|v| (versions[v], instruction_parser(versions[v]).boxed()))
+        .into_iter()
+        .collect::<BTreeMap<Version, BoxedParser<_, _, _>>>();
+    for (str, inst, ver) in random_instruction_iterator(500) {
         assert_eq!(
-            case,
-            format!("{}", parser.parse(case).expect(case).1).as_str(),
-            "{}",
-            case
+            version_map
+                .get(&ver)
+                .unwrap()
+                .parse(format!("{}", inst))
+                .map(|v| v.1),
+            Ok(inst.clone()),
+            "{} {}",
+            inst,
+            str
         );
     }
 }

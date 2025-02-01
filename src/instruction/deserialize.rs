@@ -1,4 +1,4 @@
-use crate::memory::FloatType;
+use crate::FloatType;
 use crate::{config::Config, register::Register};
 
 use super::{Immediate, Instruction};

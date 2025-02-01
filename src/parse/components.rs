@@ -7,13 +7,13 @@ use chumsky::{
 };
 
 use crate::{
-    memory::{IndexedAddr, Label, SumAddress},
     register::{Proc, Register, GPR_NAMES},
+    IndexedAddr, Label, SumAddress,
 };
 
 use super::{error::ParseErrorType, ParseError};
 
-pub fn general_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
+fn general_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
     just('$')
         .ignore_then(
             one_of("0123456789")
@@ -38,7 +38,7 @@ pub fn general_register_parser() -> impl Parser<char, Register, Error = ParseErr
             err
         })
 }
-pub fn gpr_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
+fn gpr_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
     just("$")
         .ignore_then(choice(
             GPR_NAMES.map(|(v, i)| just(v).to(Register(Proc::GPR, i))),
@@ -47,34 +47,6 @@ pub fn gpr_register_parser() -> impl Parser<char, Register, Error = ParseError> 
             err.given_type = ParseErrorType::InvalidRegisterName;
             err
         })
-}
-pub fn any_gpr_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
-    general_register_parser().or(gpr_register_parser())
-        .or(float_register_parser().try_map(|_, span| {
-            Err(ParseError::new(
-                span,
-                ParseErrorType::WrongProcessor(Proc::GPR),
-            ))
-        }))
-}
-pub fn any_float_reg_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
-    general_register_parser()
-        .or(float_register_parser())
-        .or(gpr_register_parser().try_map(|_, span| {
-            Err(ParseError::new(
-                span,
-                ParseErrorType::WrongProcessor(Proc::Cop1),
-            ))
-        }))
-}
-pub fn any_integer_reg_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
-    general_register_parser()
-        .or(gpr_register_parser().or(float_register_parser()).try_map(|_, span| {
-            Err(ParseError::new(
-                span,
-                ParseErrorType::WrongProcessor(Proc::Cop1),
-            ))
-        }))
 }
 pub fn float_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
     just("$f")
@@ -101,6 +73,73 @@ pub fn float_register_parser() -> impl Parser<char, Register, Error = ParseError
             err
         })
 }
+
+/// Parsers registers that work as general purpose registers.
+///
+/// # Example
+/// ```
+/// use chumsky::Parser;
+/// use mips_weaver::parse::any_gpr_parser;
+/// use mips_weaver::{IndexedAddr, Register, Proc};
+/// let parser = any_gpr_parser();
+/// assert_eq!(parser.parse("$0").unwrap(), Register(Proc::Unknown, 0));
+/// assert_eq!(parser.parse("$zero").unwrap(), Register(Proc::GPR, 0));
+/// ```
+pub fn any_gpr_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
+    general_register_parser()
+        .or(gpr_register_parser())
+        .or(float_register_parser().try_map(|_, span| {
+            Err(ParseError::new(
+                span,
+                ParseErrorType::WrongProcessor(Proc::GPR),
+            ))
+        }))
+}
+
+/// Parsers registers that work as floating point registers.
+///
+/// # Example
+/// ```
+/// use chumsky::Parser;
+/// use mips_weaver::parse::any_float_reg_parser;
+/// use mips_weaver::{IndexedAddr, Register, Proc};
+/// let parser = any_float_reg_parser();
+/// assert_eq!(parser.parse("$2").unwrap(), Register(Proc::Unknown, 2));
+/// assert_eq!(parser.parse("$f5").unwrap(), Register(Proc::Cop1, 5));
+/// ```
+pub fn any_float_reg_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
+    general_register_parser()
+        .or(float_register_parser())
+        .or(gpr_register_parser().try_map(|_, span| {
+            Err(ParseError::new(
+                span,
+                ParseErrorType::WrongProcessor(Proc::Cop1),
+            ))
+        }))
+}
+
+/// Parsers registers that work anywhere.
+///
+/// # Example
+/// ```
+/// use chumsky::Parser;
+/// use mips_weaver::parse::any_integer_reg_parser;
+/// use mips_weaver::{IndexedAddr, Register, Proc};
+/// let parser = any_integer_reg_parser();
+/// assert_eq!(parser.parse("$26").unwrap(), Register(Proc::Unknown, 26));
+/// assert_eq!(parser.parse("$5").unwrap(), Register(Proc::Unknown, 5));
+/// ```
+pub fn any_integer_reg_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
+    general_register_parser().or(gpr_register_parser().or(float_register_parser()).try_map(
+        |_, span| {
+            Err(ParseError::new(
+                span,
+                ParseErrorType::WrongProcessor(Proc::Unknown),
+            ))
+        },
+    ))
+}
+
 pub(crate) fn endl() -> impl Parser<char, (), Error = ParseError> + Clone {
     just(' ')
         .repeated()
@@ -121,6 +160,23 @@ fn comment() -> impl Parser<char, (), Error = ParseError> + Clone {
         .labelled("Comment")
 }
 
+/// Parses a sum address
+///
+/// # Example
+/// ```
+/// use chumsky::Parser;
+/// use mips_weaver::parse::sum_address_parser;
+/// use mips_weaver::{SumAddress, Register, Proc};
+/// let parser = sum_address_parser();
+/// assert_eq!(
+///     parser.parse("hi+2($0)").unwrap(),
+///     SumAddress {
+///         label: Some("hi".to_owned()),
+///         offset: Some(2),
+///         register: Some(Register(Proc::Unknown, 0))
+///     }
+/// );
+/// ```
 pub fn sum_address_parser() -> impl Parser<char, SumAddress, Error = ParseError> + Clone {
     // Matches the first half of the sum address, either number, ident, or number+ident
     // impl Parser<char, (Option<String>, Option<i64>)>
@@ -166,6 +222,19 @@ pub fn sum_address_parser() -> impl Parser<char, SumAddress, Error = ParseError>
         })
 }
 
+/// Parses an indexed address
+///
+/// # Example
+/// ```
+/// use chumsky::Parser;
+/// use mips_weaver::parse::idx_address_parser;
+/// use mips_weaver::{IndexedAddr, Register, Proc};
+/// let parser = idx_address_parser();
+/// assert_eq!(
+///     parser.parse("$at($0)").unwrap(),
+///     IndexedAddr(Register(Proc::GPR, 1), Register(Proc::Unknown, 0))
+/// );
+/// ```
 pub fn idx_address_parser() -> impl Parser<char, IndexedAddr, Error = ParseError> + Clone {
     any_gpr_parser()
         .then(any_gpr_parser().delimited_by(just('('), just(')')))
@@ -178,6 +247,23 @@ pub fn idx_address_parser() -> impl Parser<char, IndexedAddr, Error = ParseError
         })
 }
 
+/// Parses an indexed address
+///
+/// # Example
+/// ```
+/// use chumsky::Parser;
+/// use mips_weaver::parse::offset_label_parser;
+/// use mips_weaver::{Label, Register, Proc};
+/// let parser = offset_label_parser();
+/// assert_eq!(
+///     parser.parse("10").unwrap(),
+///     Label::Offset(10)
+/// );
+/// assert_eq!(
+///     parser.parse("hi").unwrap(),
+///     Label::Name("hi".to_owned())
+/// );
+/// ```
 pub fn offset_label_parser() -> impl Parser<char, Label, Error = ParseError> {
     integer_parser()
         .map(|v| Label::Offset(v))
@@ -187,6 +273,24 @@ pub fn offset_label_parser() -> impl Parser<char, Label, Error = ParseError> {
             err
         })
 }
+
+/// Parses an indexed address
+///
+/// # Example
+/// ```
+/// use chumsky::Parser;
+/// use mips_weaver::parse::aligned_offset_label_parser;
+/// use mips_weaver::{Label, Register, Proc};
+/// let parser = aligned_offset_label_parser();
+/// assert_eq!(
+///     parser.parse("10").unwrap(),
+///     Label::AlignedOffset(10)
+/// );
+/// assert_eq!(
+///     parser.parse("hi").unwrap(),
+///     Label::Name("hi".to_owned())
+/// );
+/// ```
 pub fn aligned_offset_label_parser() -> impl Parser<char, Label, Error = ParseError> {
     integer_parser()
         .validate(|v, span, emit| {
@@ -196,9 +300,8 @@ pub fn aligned_offset_label_parser() -> impl Parser<char, Label, Error = ParseEr
                     ParseErrorType::LitBounds(0, (1 << 32) - 1),
                 ))
             }
-            v
+            Label::AlignedOffset(v as u32)
         })
-        .map(|v| Label::Offset(v))
         .or(ident().map(|v| Label::Name(v)))
         .map_err(|mut err| {
             err.given_type = ParseErrorType::InvalidLabel;
@@ -206,7 +309,7 @@ pub fn aligned_offset_label_parser() -> impl Parser<char, Label, Error = ParseEr
         })
 }
 
-pub fn float_parser() -> impl Parser<char, f64, Error = ParseError> + Clone {
+pub(crate) fn float_parser() -> impl Parser<char, f64, Error = ParseError> + Clone {
     let digits = filter(|c: &char| c.is_digit(10)).repeated().at_least(1);
     just('-')
         .or_not()
@@ -226,7 +329,7 @@ pub fn float_parser() -> impl Parser<char, f64, Error = ParseError> + Clone {
         })
 }
 
-pub fn integer_parser() -> impl Parser<char, i64, Error = ParseError> + Clone {
+pub(crate) fn integer_parser() -> impl Parser<char, i64, Error = ParseError> + Clone {
     let sign = choice((just("-").to(-1), just("+").to(1), empty().to(1)));
     let int_prefix = choice((
         just("0d").to(10),
@@ -251,7 +354,7 @@ pub fn integer_parser() -> impl Parser<char, i64, Error = ParseError> + Clone {
         .labelled("Integer parser")
 }
 
-pub fn string_literal_parser() -> impl Parser<char, String, Error = ParseError> + Clone {
+pub(crate) fn string_literal_parser() -> impl Parser<char, String, Error = ParseError> + Clone {
     choice((
         just("\\n").to('\n'),
         just("\\t").to('\t'),
@@ -273,9 +376,9 @@ mod test {
     use chumsky::{prelude::end, Parser};
 
     use crate::{
-        memory::{IndexedAddr, Label, SumAddress},
         parse::components::{idx_address_parser, offset_label_parser, sum_address_parser},
         register::{Proc, Register, GPR_NAMES},
+        IndexedAddr, Label, SumAddress,
     };
 
     use super::{

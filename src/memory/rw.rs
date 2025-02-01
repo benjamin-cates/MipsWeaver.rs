@@ -1,6 +1,6 @@
-use crate::{err::RuntimeException, memory::Memory};
+use crate::{Memory, RuntimeException};
 
-use super::IntType;
+use crate::IntType;
 impl Memory {
     /// Get the hi and lo registers as a fused 64 bit number
     pub fn get_hilo(&self) -> u64 {

@@ -1,11 +1,12 @@
 use crate::cop1::FloatingPointException;
-use crate::err::RuntimeException;
+use crate::memory::RuntimeException;
 use crate::instruction::execution_helpers::{binary_float, trinary_float, unary_float};
 use crate::instruction::types::Likely;
 use crate::instruction::Instruction;
-use crate::memory::{IntType, Memory};
+use crate::memory::Memory;
+use crate::FloatType;
+use crate::IntType;
 use crate::register::Proc;
-use crate::syscall::syscall;
 use crate::util::{crc32, fits_bits};
 use core::ops::Add;
 use std::num::FpCategory;
@@ -14,7 +15,6 @@ use std::ops::{Mul, Neg, Shr, Sub};
 use super::execution_helpers::{checked_binary_when_signed, ExecutionAction};
 use super::Comparison;
 use super::{Immediate, Sign};
-use crate::memory::FloatType;
 
 checked_binary_when_signed!(checked_add, wrapping_add, checked_add);
 checked_binary_when_signed!(checked_sub, wrapping_sub, checked_sub);
@@ -1226,7 +1226,7 @@ impl Instruction {
                 // Do nothing
             }
             I::Syscall(_) => {
-                syscall(mem)?;
+                mem.syscall()?;
             }
             I::Trap(sign, cmp, (rs, rt)) => {
                 if signed_compare(sign, cmp, mem.reg(rs.id()), mem.reg(rt.id())) {

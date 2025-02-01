@@ -1,6 +1,6 @@
 use crate::{
     config::{Config, Version},
-    err::RuntimeException,
+    memory::RuntimeException,
 };
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]

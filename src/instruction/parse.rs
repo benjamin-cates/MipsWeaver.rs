@@ -1,6 +1,6 @@
 use crate::instruction::Sign;
 use crate::instruction::{Comparison};
-use crate::memory::{FloatType, IntType};
+use crate::{FloatType, IntType};
 
 use core::str::FromStr;
 

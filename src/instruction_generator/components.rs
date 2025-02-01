@@ -54,7 +54,7 @@ impl Display for UnnamedRegisterRand {
 }
 impl From<UnnamedRegisterRand> for Register {
     fn from(value: UnnamedRegisterRand) -> Self {
-        Register::new_gpr((value.0 % 32) as usize)
+        Register(crate::Proc::Unknown, (value.0 % 32) as usize)
     }
 }
 // ********************* FLOAT RAND *******************
@@ -168,6 +168,57 @@ impl From<LabelRand> for Label {
         if value.0 % 19 < 10 {
             Label::Offset(
                 <ImmediateRand as Into<Immediate>>::into(ImmediateRand(value.0, value.1)).0,
+            )
+        } else {
+            Label::Name(format!("{}", value))
+        }
+    }
+}
+// ***************** ALIGNED LABEL RAND ********************
+pub struct AlignedLabelRand(u32, (i64, i64));
+impl MakeRand for AlignedLabelRand {
+    type Extra = (i64, i64);
+    type Into = Label;
+    fn gen(num: u32, args: Self::Extra) -> Self {
+        Self(num, args)
+    }
+}
+impl Display for AlignedLabelRand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const SIZE: usize = 10 + 26 + 26 + 1;
+        if self.0 % 19 < 10 {
+            return f.write_fmt(format_args!("{}", ImmediateRand(self.0, self.1)));
+        }
+        let mut iter = ('0'..='9')
+            .chain('a'..='z')
+            .chain('A'..='Z')
+            .chain('_'..'`');
+        f.write_char(
+            iter.nth((10 + self.0 as usize % (SIZE - 10)) as usize)
+                .unwrap(),
+        )?;
+        if self.0 % 2 == 0 {
+            let mut iter = ('0'..='9')
+                .chain('a'..='z')
+                .chain('A'..='Z')
+                .chain('_'..'`');
+            f.write_char(iter.nth((self.0 as usize / SIZE) % SIZE).unwrap())?;
+        }
+        if self.0 % 3 == 0 {
+            let mut iter = ('0'..='9')
+                .chain('a'..='z')
+                .chain('A'..='Z')
+                .chain('_'..'`');
+            f.write_char(iter.nth((self.0 as usize / SIZE / SIZE) % SIZE).unwrap())?;
+        }
+        Ok(())
+    }
+}
+impl From<AlignedLabelRand> for Label {
+    fn from(value: AlignedLabelRand) -> Self {
+        if value.0 % 19 < 10 {
+            Label::AlignedOffset(
+                <ImmediateRand as Into<Immediate>>::into(ImmediateRand(value.0, value.1)).0 as u32,
             )
         } else {
             Label::Name(format!("{}", value))

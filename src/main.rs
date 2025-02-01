@@ -2,20 +2,37 @@ use std::io::Read;
 
 use ariadne::Source;
 use chumsky::{Parser};
-use config::Config;
 use parse::{compile::program_parser};
 
-pub mod config;
-pub mod cop0;
-pub mod cop1;
-pub mod err;
+mod config;
+mod cop0;
+mod cop1;
 pub mod instruction;
+pub use config::Config;
+pub use config::Version;
+pub mod instruction_generator;
+pub use instruction::Instruction;
+pub use instruction::Immediate;
+pub use instruction::IndexedAddr;
+pub use instruction::Label;
+pub use instruction::Likely;
+pub use instruction::Sign;
+pub use instruction::SumAddress;
+pub use instruction::FloatType;
+pub use instruction::IntType;
+pub use instruction::InstructionType;
+pub use instruction::Comparison;
 pub mod io_abstraction;
-pub mod memory;
+mod memory;
 pub mod parse;
-pub mod register;
-pub mod syscall;
+mod register;
+mod syscall;
 mod util;
+pub use memory::Memory;
+pub use memory::RuntimeException;
+pub use register::Proc;
+pub use register::Register;
+
 
 fn main() -> std::io::Result<()> {
     let mut buffer = Vec::<u8>::new();
