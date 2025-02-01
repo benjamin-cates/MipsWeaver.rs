@@ -19,6 +19,12 @@ impl PartialEq for Register {
     }
 }
 
+impl Default for Register {
+    fn default() -> Self {
+        Register(Proc::Unknown, 0)
+    }
+}
+
 impl Eq for Register {}
 
 impl Register {

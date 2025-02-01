@@ -1,7 +1,13 @@
-use std::{cell::{Cell, RefCell}, collections::HashMap, ops::Range, rc::Rc, sync::RwLock};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    ops::Range,
+    rc::Rc,
+    sync::RwLock,
+};
 
 use chumsky::{
-    prelude::{empty, just, one_of},
+    prelude::{empty, just, one_of, skip_until},
     BoxedParser, Parser,
 };
 
@@ -11,8 +17,8 @@ use crate::{
     memory::{FloatType, IntType},
     parse::{
         components::{
-            aligned_offset_label_parser, any_gpr_parser, idx_address_parser, offset_label_parser,
-            sum_address_parser,
+            aligned_offset_label_parser, any_gpr_parser, any_integer_reg_parser,
+            idx_address_parser, offset_label_parser, sum_address_parser,
         },
         error::ParseErrorType,
         ParseError, INSTRUCTION_LIST,
@@ -20,23 +26,69 @@ use crate::{
     register::{Proc, Register},
 };
 
-use super::components::{any_float_reg_parser, integer_parser};
+use super::{
+    components::{any_float_reg_parser, endl, integer_parser},
+    error::InstructionErrReason,
+};
 
-fn no_args(maker: Instruction) -> BoxedParser<'static, char, Instruction, ParseError> {
-    empty().to(maker).padded_by(just(' ').repeated()).boxed()
+fn separator(expected: usize, found: usize) -> impl Parser<char, (), Error = ParseError> {
+    just::<_, _, ParseError>(',')
+        .map_err_with_span(move |mut err, _span| {
+            if err.found == Some(';') || err.found == Some('\n') || err.found == Some('\r') {
+                err.given_type = ParseErrorType::InvalidInstruction(
+                    None,
+                    None,
+                    InstructionErrReason::MissingArg(expected, found),
+                );
+            } else {
+                err.given_type = ParseErrorType::InvChar
+            }
+            err
+        })
+        .ignored()
 }
 
-fn args_parser_1<A: 'static>(
+fn normal_end(num_args: usize) -> impl Parser<char, (), Error = ParseError> {
+    endl().rewind().map_err_with_span(move |err, span| {
+        if err.found == Some(',') {
+            ParseError::new(
+                span,
+                ParseErrorType::InvalidInstruction(
+                    None,
+                    None,
+                    InstructionErrReason::TooManyArgs(num_args, num_args + 1),
+                ),
+            )
+        } else {
+            ParseError::new(span, ParseErrorType::InvChar)
+        }
+    })
+}
+
+fn no_args(maker: Instruction) -> BoxedParser<'static, char, Instruction, ParseError> {
+    empty()
+        .to(maker)
+        .padded_by(just(' ').repeated())
+        .then_ignore(normal_end(0))
+        .boxed()
+}
+
+fn args_parser_1<A: 'static + Default>(
     p_1: &Rc<dyn Parser<char, A, Error = ParseError> + 'static>,
     maker: impl Fn(A) -> Instruction + 'static,
 ) -> BoxedParser<'static, char, Instruction, ParseError> {
     just(' ')
-        .ignore_then(p_1.clone().padded_by(just(' ').repeated()))
+        .ignore_then(
+            p_1.clone()
+                .padded_by(just(' ').repeated())
+                .recover_with(skip_until([',', '\n', '\r', ';'], |_| A::default())),
+        )
         .map(maker)
+        .then_ignore(normal_end(1))
         .boxed()
 }
 
-fn args_parser_2<A: 'static, B: 'static>(
+fn args_parser_2<A: 'static + Default, B: 'static + Default>(
     p_1: &Rc<dyn Parser<char, A, Error = ParseError> + 'static>,
     p_2: &Rc<dyn Parser<char, B, Error = ParseError> + 'static>,
     maker: impl Fn((A, B)) -> Instruction + 'static,
@@ -45,14 +97,20 @@ fn args_parser_2<A: 'static, B: 'static>(
         .ignore_then(
             p_1.clone()
                 .padded_by(just(' ').repeated())
-                .then_ignore(just(',')),
+                .recover_with(skip_until([',', '\n', '\r', ';'], |_| A::default()))
+                .then_ignore(separator(2, 1)),
         )
-        .then(p_2.clone().padded_by(just(' ').repeated()))
+        .then(
+            p_2.clone()
+                .padded_by(just(' ').repeated())
+                .recover_with(skip_until([',', '\n', '\r', ';'], |_| B::default())),
+        )
         .map(maker)
+        .then_ignore(normal_end(2))
         .boxed()
 }
 
-fn args_parser_3<A: 'static, B: 'static, C: 'static>(
+fn args_parser_3<A: 'static + Default, B: 'static + Default, C: 'static + Default>(
     p_1: &Rc<dyn Parser<char, A, Error = ParseError> + 'static>,
     p_2: &Rc<dyn Parser<char, B, Error = ParseError> + 'static>,
     p_3: &Rc<dyn Parser<char, C, Error = ParseError> + 'static>,
@@ -62,20 +120,32 @@ fn args_parser_3<A: 'static, B: 'static, C: 'static>(
         .ignore_then(
             p_1.clone()
                 .padded_by(just(' ').repeated())
-                .then_ignore(just(',')),
+                .recover_with(skip_until([',', '\n', '\r', ';'], |_| A::default()))
+                .then_ignore(separator(3, 1)),
         )
         .then(
             p_2.clone()
                 .padded_by(just(' ').repeated())
-                .then_ignore(just(',')),
+                .recover_with(skip_until([',', '\n', '\r', ';'], |_| B::default()))
+                .then_ignore(separator(3, 2)),
         )
-        .then(p_3.clone().padded_by(just(' ').repeated()))
+        .then(
+            p_3.clone()
+                .padded_by(just(' ').repeated())
+                .recover_with(skip_until([',', '\n', '\r', ';'], |_| C::default())),
+        )
         .map(|((a, b), c)| (a, b, c))
         .map(maker)
+        .then_ignore(normal_end(3))
         .boxed()
 }
 
-fn args_parser_4<A: 'static, B: 'static, C: 'static, D: 'static>(
+fn args_parser_4<
+    A: 'static + Default,
+    B: 'static + Default,
+    C: 'static + Default,
+    D: 'static + Default,
+>(
     p_1: &Rc<dyn Parser<char, A, Error = ParseError> + 'static>,
     p_2: &Rc<dyn Parser<char, B, Error = ParseError> + 'static>,
     p_3: &Rc<dyn Parser<char, C, Error = ParseError> + 'static>,
@@ -86,21 +156,29 @@ fn args_parser_4<A: 'static, B: 'static, C: 'static, D: 'static>(
         .ignore_then(
             p_1.clone()
                 .padded_by(just(' ').repeated())
-                .then_ignore(just(',')),
+                .recover_with(skip_until([',', '\n', '\r', ';'], |_| A::default()))
+                .then_ignore(separator(4, 1)),
         )
         .then(
             p_2.clone()
                 .padded_by(just(' ').repeated())
-                .then_ignore(just(',')),
+                .recover_with(skip_until([',', '\n', '\r', ';'], |_| B::default()))
+                .then_ignore(separator(4, 2)),
         )
         .then(
             p_3.clone()
                 .padded_by(just(' ').repeated())
-                .then_ignore(just(',')),
+                .recover_with(skip_until([',', '\n', '\r', ';'], |_| C::default()))
+                .then_ignore(separator(4, 3)),
         )
-        .then(p_4.clone().padded_by(just(' ').repeated()))
+        .then(
+            p_4.clone()
+                .padded_by(just(' ').repeated())
+                .recover_with(skip_until([',', '\n', '\r', ';'], |_| D::default())),
+        )
         .map(|(((a, b), c), d)| (a, b, c, d))
         .map(maker)
+        .then_ignore(normal_end(4))
         .boxed()
 }
 
@@ -120,9 +198,7 @@ fn lit_parser_min_max<'a>(
     Rc::new(
         integer_parser().validate(move |num, span: Range<usize>, emit| {
             if num > max || num < min {
-                emit(
-                    ParseError::new(span, ParseErrorType::LitBounds(min, max)),
-                )
+                emit(ParseError::new(span, ParseErrorType::LitBounds(min, max)))
             }
             Immediate(num)
         }),
@@ -138,9 +214,10 @@ fn valid_fpr_type(fpr_type: FloatType) -> impl Parser<char, Register, Error = Pa
             FloatType::PairedSingle => reg.is_paired_single(),
         };
         if !valid {
-            emit(
-                ParseError::new(span, ParseErrorType::WrongProcessor),
-            )
+            emit(ParseError::new(
+                span,
+                ParseErrorType::WrongProcessor(Proc::Cop1),
+            ))
         }
         reg
     })
@@ -158,7 +235,8 @@ fn to_boxy<O>(parser: impl Parser<char, O, Error = ParseError> + 'static) -> Box
 pub fn instruction_parser(
     version: Version,
 ) -> impl Parser<char, (Range<usize>, Instruction), Error = ParseError> {
-    let cache: RefCell<HashMap<&'static str, BoxedParser<'static, char, Instruction, ParseError>>> = RefCell::new(HashMap::new());
+    let cache: RefCell<HashMap<&'static str, BoxedParser<'static, char, Instruction, ParseError>>> =
+        RefCell::new(HashMap::new());
     let name_parser = one_of(".abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123")
         .repeated()
         .at_least(1)
@@ -166,16 +244,37 @@ pub fn instruction_parser(
         .try_map(|s: String, span: Range<usize>| {
             match INSTRUCTION_LIST.binary_search(&s.to_lowercase().as_str()) {
                 Ok(s) => Ok(s),
-                Err(_) => Err(
-                    ParseError::new(span, ParseErrorType::InvalidInstruction),
-                ),
+                Err(_) => Err(ParseError::new(
+                    span.clone(),
+                    ParseErrorType::InvalidInstruction(
+                        None,
+                        Some((span.start, span.end)),
+                        InstructionErrReason::DoesNotExist,
+                    ),
+                )),
             }
         });
 
     name_parser
-        .then_with(move |name_id| {
-            cache.borrow_mut().entry(INSTRUCTION_LIST[name_id]).or_insert_with(|| get_inst_parser(INSTRUCTION_LIST[name_id], version)).clone()
+        .map_with_span(|name, span| (name, span))
+        .then_with(move |(name_id, span)| {
+            cache
+                .borrow_mut()
+                .entry(INSTRUCTION_LIST[name_id])
+                .or_insert_with(|| get_inst_parser(INSTRUCTION_LIST[name_id], version))
+                .clone()
+                .map_err(move |mut err| {
+                    if let ParseErrorType::InvalidInstruction(_, _, reason) = err.given_type {
+                        err.given_type = ParseErrorType::InvalidInstruction(
+                            Some(INSTRUCTION_LIST[name_id]),
+                            Some((span.start, span.end)),
+                            reason,
+                        );
+                    }
+                    err
+                })
         })
+        .recover_with(skip_until(['\n', ';', '\r'], |_| Instruction::Nop))
         .map_with_span(|inst, span| (span, inst))
 }
 
@@ -185,6 +284,7 @@ fn get_inst_parser(
 ) -> BoxedParser<'static, char, Instruction, ParseError> {
     let gpr = to_boxy(any_gpr_parser());
     let fpr = to_boxy(valid_fpr_type(FloatType::Single));
+    let apr = to_boxy(any_integer_reg_parser());
     use Comparison as Cmp;
     use FloatType::*;
     use Instruction as I;
@@ -282,11 +382,15 @@ fn get_inst_parser(
         "bc1eqz" | "bc1nez" => args_parser_2(&fpr, &to_boxy(offset_label_parser()), move |args| {
             I::BranchCopZ(Proc::Cop1, name.find("eqz").is_some(), args)
         }),
-        "bc2eqz" | "bc2nez" => args_parser_2(&fpr, &to_boxy(offset_label_parser()), move |args| {
+        "bc2eqz" | "bc2nez" => args_parser_2(&apr, &to_boxy(offset_label_parser()), move |args| {
             I::BranchCopZ(Proc::Cop2, name.find("eqz").is_some(), args)
         }),
         "bc1f" | "bc1fl" | "bc1t" | "bc1tl" | "bc2f" | "bc2fl" | "bc2t" | "bc2tl" => {
-            let proc = if name.as_bytes()[2] == b'1' { Proc::Cop1 } else { Proc::Cop2 };
+            let proc = if name.as_bytes()[2] == b'1' {
+                Proc::Cop1
+            } else {
+                Proc::Cop2
+            };
             let truthy: bool = name.find('t').is_some();
             let likely = if name.find('l').is_some() {
                 Likely::True
@@ -300,9 +404,7 @@ fn get_inst_parser(
             )
             .or(args_parser_1(
                 &to_boxy(offset_label_parser()),
-                move |args| {
-                    I::BranchCop(proc, truthy, likely, (Immediate(0), args))
-                },
+                move |args| I::BranchCop(proc, truthy, likely, (Immediate(0), args)),
             ))
             .boxed()
         }
@@ -320,9 +422,7 @@ fn get_inst_parser(
         "ceil.w.s" | "ceil.w.d" => {
             args_parser_2(&fpr, &fpr, move |args| I::Ceil(IntType::Word, ft, args))
         }
-        "cfc1" => args_parser_2(&gpr, &fpr, |args| {
-            I::CopyFromControlCop(Proc::Cop1, args)
-        }),
+        "cfc1" => args_parser_2(&gpr, &fpr, |args| I::CopyFromControlCop(Proc::Cop1, args)),
         "class.s" | "class.d" => args_parser_2(&fpr, &fpr, move |args| I::Class(ft, args)),
         "clo" => args_parser_2(&gpr, &gpr, I::CountLeadingOne),
         "clz" => args_parser_2(&gpr, &gpr, I::CountLeadingZero),
@@ -336,9 +436,7 @@ fn get_inst_parser(
                 })
                 .try_map(|(a, b, c), span| {
                     if a != c {
-                        Err(
-                            ParseError::new(span, ParseErrorType::InvalidCommand),
-                        )
+                        Err(ParseError::new(span, ParseErrorType::InvalidCommand))
                     } else {
                         Ok((a, b, c))
                     }
@@ -356,9 +454,7 @@ fn get_inst_parser(
                 })
                 .try_map(|(a, b, c), span| {
                     if a != c {
-                        Err(
-                            ParseError::new(span, ParseErrorType::InvalidCommand),
-                        )
+                        Err(ParseError::new(span, ParseErrorType::InvalidCommand))
                     } else {
                         Ok((a, b, c))
                     }
@@ -366,9 +462,7 @@ fn get_inst_parser(
                 .map(move |args| I::Crc32C(it, (args.0, args.1)))
                 .boxed()
         }
-        "ctc1" => args_parser_2(&gpr, &fpr, |args| {
-            I::CopyToControlCop(Proc::Cop1, args)
-        }),
+        "ctc1" => args_parser_2(&gpr, &fpr, |args| I::CopyToControlCop(Proc::Cop1, args)),
         "cvt.d.s" | "cvt.s.d" => {
             let ft2 = name[3..5].parse().unwrap();
             args_parser_2(&fpr, &fpr, move |args| I::CvtFloats(ft2, ft, args))
@@ -420,9 +514,10 @@ fn get_inst_parser(
         .try_map(|v, span| match v {
             I::ExtractBits((a, b, c, d)) => {
                 if c.0 + d.0 - 1 > 32 || c.0 + d.0 - 1 < 0 {
-                    Err(
-                        ParseError::new(span, ParseErrorType::LitBounds(0, 32 - c.0)),
-                    )
+                    Err(ParseError::new(
+                        span,
+                        ParseErrorType::LitBounds(0, 32 - c.0),
+                    ))
                 } else {
                     Ok(I::ExtractBits((a, b, c, d)))
                 }
@@ -447,9 +542,10 @@ fn get_inst_parser(
         .try_map(|v, span| match v {
             I::InsertBits((a, b, c, d)) => {
                 if c.0 + d.0 - 1 > 32 || c.0 + d.0 - 1 < 0 {
-                    Err(
-                        ParseError::new(span, ParseErrorType::LitBounds(0, 32 - c.0)),
-                    )
+                    Err(ParseError::new(
+                        span,
+                        ParseErrorType::LitBounds(0, 32 - c.0),
+                    ))
                 } else {
                     Ok(I::InsertBits((a, b, c, d)))
                 }
@@ -480,7 +576,9 @@ fn get_inst_parser(
         }
         "lb" | "lbu" | "lh" | "lhu" | "lw" | "lwu" => {
             let it = name[1..2].parse().unwrap();
-            args_parser_2(&gpr, &to_boxy(sum_address_parser()), move |args| I::LoadInt(sign, it, args))
+            args_parser_2(&gpr, &to_boxy(sum_address_parser()), move |args| {
+                I::LoadInt(sign, it, args)
+            })
         }
         "lwxc1" => args_parser_2(&fpr, &to_boxy(idx_address_parser()), |args| {
             I::LoadIndexedCop1(IntType::Word, args)
@@ -493,7 +591,7 @@ fn get_inst_parser(
         }),
         "lwc2" | "ldc2" => {
             let it = name[1..2].parse().unwrap();
-            args_parser_2(&gpr, &to_boxy(sum_address_parser()), move |args| {
+            args_parser_2(&apr, &to_boxy(sum_address_parser()), move |args| {
                 I::LoadCop(Proc::Cop2, it, args)
             })
         }
@@ -683,7 +781,7 @@ fn get_inst_parser(
         "sdbbp" => args_parser_1(&lit_parser(U, 20), I::SwDebugBreak),
         "swc2" | "sdc2" => {
             let it = name[1..2].parse().unwrap();
-            args_parser_2(&gpr, &to_boxy(sum_address_parser()), move |args| {
+            args_parser_2(&apr, &to_boxy(sum_address_parser()), move |args| {
                 I::StoreCop(Proc::Cop2, it, args)
             })
         }
@@ -764,5 +862,76 @@ fn get_inst_parser(
         "xor" => args_parser_3(&gpr, &gpr, &gpr, I::Xor),
         "xori" => args_parser_3(&gpr, &gpr, &lit_parser(U, 32), I::XorImmediate),
         _ => chumsky::primitive::empty().to(Instruction::Nop).boxed(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chumsky::Parser;
+    use crate::{
+        config::Version,
+        parse::{instruction_parser, InstructionErrReason, ParseError, ParseErrorType},
+        register::Proc,
+    };
+
+    #[test]
+    fn test_instruction_parse_errors() {
+        let parser = instruction_parser(Version::R5);
+        assert_eq!(
+            parser.parse("add $t1, $t1, $t1, $t1\n").unwrap_err()[0].given_type,
+            ParseErrorType::InvalidInstruction(
+                Some("add"),
+                Some((0, 3)),
+                InstructionErrReason::TooManyArgs(3, 4)
+            )
+        );
+        assert_eq!(
+            parser.parse("add $t1, $t1\n").unwrap_err()[0].given_type,
+            ParseErrorType::InvalidInstruction(
+                Some("add"),
+                Some((0, 3)),
+                InstructionErrReason::MissingArg(3, 2)
+            )
+        );
+        assert_eq!(
+            parser.parse("add $t1\n").unwrap_err()[0].given_type,
+            ParseErrorType::InvalidInstruction(
+                Some("add"),
+                Some((0, 3)),
+                InstructionErrReason::MissingArg(3, 1)
+            )
+        );
+        assert_eq!(
+            parser.parse("add $t1, $f1, $t1\n").unwrap_err()[0],
+            ParseError::new(9..12, ParseErrorType::WrongProcessor(Proc::GPR))
+        );
+        assert_eq!(
+            parser.parse("add $t1, f1, $t1\n").unwrap_err()[0].given_type,
+            ParseErrorType::InvalidRegisterName
+        );
+        assert_eq!(
+            parser.parse("add $t1, $, $t1\n").unwrap_err()[0].given_type,
+            ParseErrorType::InvalidRegisterName
+        );
+        assert_eq!(
+            parser.parse("name\n").unwrap_err()[0].given_type,
+            ParseErrorType::InvalidInstruction(
+                None,
+                Some((0, 4)),
+                InstructionErrReason::DoesNotExist
+            ),
+        );
+        assert_eq!(
+            parser.parse("hai\n").unwrap_err()[0].given_type,
+            ParseErrorType::InvalidInstruction(
+                None,
+                Some((0, 3)),
+                InstructionErrReason::DoesNotExist
+            ),
+        );
+        assert_eq!(
+            parser.parse("tlbinv $1\n").unwrap_err()[0].given_type,
+            ParseErrorType::InvChar
+        );
     }
 }

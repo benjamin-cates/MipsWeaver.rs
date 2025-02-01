@@ -3,3 +3,9 @@
 /// Ex: addi $t0, $t0, 5 has the Immediate value of 5
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Immediate(pub i64);
+
+impl Default for Immediate {
+    fn default() -> Self {
+        Immediate(0)
+    }
+}

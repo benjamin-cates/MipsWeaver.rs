@@ -10,12 +10,20 @@ pub enum Label {
     AlignedOffset(u32),
 }
 
+impl Default for Label {
+    fn default() -> Self {
+        Self::Name(String::from(""))
+    }
+}
+
 impl Label {
     pub(crate) fn get_address(&self, mem: &Memory) -> Option<u32> {
         match self {
             Label::Name(ref str) => mem.labels.get(str).cloned(),
             Label::Offset(val) => Some((mem.program_counter as i64 + val) as u32),
-            Label::AlignedOffset(val) => Some((mem.program_counter & 0xFC000000) | (val & 0x03FFFFFF)),
+            Label::AlignedOffset(val) => {
+                Some((mem.program_counter & 0xFC000000) | (val & 0x03FFFFFF))
+            }
         }
     }
 }
@@ -32,6 +40,16 @@ pub struct SumAddress {
     pub label: Option<String>,
     pub offset: Option<i32>,
     pub register: Option<Register>,
+}
+
+impl Default for SumAddress {
+    fn default() -> Self {
+        Self {
+            label: None,
+            offset: None,
+            register: Some(Register::default()),
+        }
+    }
 }
 
 impl SumAddress {
@@ -58,5 +76,11 @@ pub struct IndexedAddr(pub Register, pub Register);
 impl IndexedAddr {
     pub(crate) fn evaluate(&self, mem: &Memory) -> u32 {
         mem.reg(self.0.id()).wrapping_add(mem.reg(self.1.id()))
+    }
+}
+
+impl Default for IndexedAddr {
+    fn default() -> Self {
+        Self(Register::default(), Register::default())
     }
 }

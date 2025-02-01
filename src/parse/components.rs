@@ -14,62 +14,102 @@ use crate::{
 use super::{error::ParseErrorType, ParseError};
 
 pub fn general_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
-    just('$').ignore_then(
-        one_of("0123456789")
-            .repeated()
-            .at_least(1)
-            .at_most(2)
-            .try_map(|digits, span| {
-                let digit = if digits.len() == 2 {
-                    10 * (digits[0] as u8 - b'0') + (digits[1] as u8 - b'0')
-                } else {
-                    digits[0] as u8 - b'0'
-                };
-                if digit < 32 {
-                    Ok(Register(Proc::Unknown, digit as usize))
-                } else {
-                    Err(ParseError::new(span, ParseErrorType::InvalidRegisterName))
-                }
-            }),
-    )
+    just('$')
+        .ignore_then(
+            one_of("0123456789")
+                .repeated()
+                .at_least(1)
+                .at_most(2)
+                .try_map(|digits, span| {
+                    let digit = if digits.len() == 2 {
+                        10 * (digits[0] as u8 - b'0') + (digits[1] as u8 - b'0')
+                    } else {
+                        digits[0] as u8 - b'0'
+                    };
+                    if digit < 32 {
+                        Ok(Register(Proc::Unknown, digit as usize))
+                    } else {
+                        Err(ParseError::new(span, ParseErrorType::InvalidRegisterName))
+                    }
+                }),
+        )
+        .map_err(|mut err: ParseError| {
+            err.given_type = ParseErrorType::InvalidRegisterName;
+            err
+        })
 }
 pub fn gpr_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
-    just("$").ignore_then(choice(
-        GPR_NAMES.map(|(v, i)| just(v).to(Register(Proc::GPR, i))),
-    ))
+    just("$")
+        .ignore_then(choice(
+            GPR_NAMES.map(|(v, i)| just(v).to(Register(Proc::GPR, i))),
+        ))
+        .map_err(|mut err: ParseError| {
+            err.given_type = ParseErrorType::InvalidRegisterName;
+            err
+        })
 }
 pub fn any_gpr_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
     general_register_parser().or(gpr_register_parser())
+        .or(float_register_parser().try_map(|_, span| {
+            Err(ParseError::new(
+                span,
+                ParseErrorType::WrongProcessor(Proc::GPR),
+            ))
+        }))
 }
 pub fn any_float_reg_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
-    general_register_parser().or(float_register_parser())
+    general_register_parser()
+        .or(float_register_parser())
+        .or(gpr_register_parser().try_map(|_, span| {
+            Err(ParseError::new(
+                span,
+                ParseErrorType::WrongProcessor(Proc::Cop1),
+            ))
+        }))
+}
+pub fn any_integer_reg_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
+    general_register_parser()
+        .or(gpr_register_parser().or(float_register_parser()).try_map(|_, span| {
+            Err(ParseError::new(
+                span,
+                ParseErrorType::WrongProcessor(Proc::Cop1),
+            ))
+        }))
 }
 pub fn float_register_parser() -> impl Parser<char, Register, Error = ParseError> + Clone {
-    just("$f").ignore_then(
-        one_of("0123456789")
-            .repeated()
-            .at_least(1)
-            .at_most(2)
-            .try_map(|digits, span| {
-                let digit = if digits.len() == 2 {
-                    10 * (digits[0] as u8 - b'0') + (digits[1] as u8 - b'0')
-                } else {
-                    digits[0] as u8 - b'0'
-                };
-                if digit < 32 {
-                    Ok(Register(Proc::Cop1, digit as usize))
-                } else {
-                    Err(ParseError::new(span, ParseErrorType::InvalidRegisterName))
-                }
-            }),
-    )
+    just("$f")
+        .ignore_then(
+            one_of("0123456789")
+                .repeated()
+                .at_least(1)
+                .at_most(2)
+                .try_map(|digits, span| {
+                    let digit = if digits.len() == 2 {
+                        10 * (digits[0] as u8 - b'0') + (digits[1] as u8 - b'0')
+                    } else {
+                        digits[0] as u8 - b'0'
+                    };
+                    if digit < 32 {
+                        Ok(Register(Proc::Cop1, digit as usize))
+                    } else {
+                        Err(ParseError::new(span, ParseErrorType::InvalidRegisterName))
+                    }
+                }),
+        )
+        .map_err(|mut err| {
+            err.given_type = ParseErrorType::InvalidRegisterName;
+            err
+        })
 }
 pub(crate) fn endl() -> impl Parser<char, (), Error = ParseError> + Clone {
-    just(' ').repeated().ignore_then(choice((
-        newline().ignore_then(empty().padded()),
-        comment().repeated().at_least(1).ignored(),
-        end(),
-    )))
+    just(' ')
+        .repeated()
+        .ignore_then(choice((
+            newline().ignore_then(empty().padded()),
+            comment().repeated().at_least(1).ignored(),
+            end(),
+        )))
+        .labelled("End line")
 }
 
 fn comment() -> impl Parser<char, (), Error = ParseError> + Clone {
@@ -78,6 +118,7 @@ fn comment() -> impl Parser<char, (), Error = ParseError> + Clone {
             newline().or(end()).ignore_then(empty().padded()),
         ))
         .ignored()
+        .labelled("Comment")
 }
 
 pub fn sum_address_parser() -> impl Parser<char, SumAddress, Error = ParseError> + Clone {
@@ -117,18 +158,34 @@ pub fn sum_address_parser() -> impl Parser<char, SumAddress, Error = ParseError>
                 Err(ParseError::new(span, ParseErrorType::InvalidSumAddr))
             }
         })
+        .map_err(|mut err| {
+            if err.given_type == ParseErrorType::Unknown {
+                err.given_type = ParseErrorType::InvalidSumAddr;
+            }
+            err
+        })
 }
 
 pub fn idx_address_parser() -> impl Parser<char, IndexedAddr, Error = ParseError> + Clone {
     any_gpr_parser()
         .then(any_gpr_parser().delimited_by(just('('), just(')')))
         .map(|(reg1, reg2)| IndexedAddr(reg1, reg2))
+        .map_err(|mut err| {
+            if err.given_type == ParseErrorType::Unknown {
+                err.given_type = ParseErrorType::InvalidIndexedAddr;
+            }
+            err
+        })
 }
 
 pub fn offset_label_parser() -> impl Parser<char, Label, Error = ParseError> {
     integer_parser()
         .map(|v| Label::Offset(v))
         .or(ident().map(|v| Label::Name(v)))
+        .map_err(|mut err| {
+            err.given_type = ParseErrorType::InvalidLabel;
+            err
+        })
 }
 pub fn aligned_offset_label_parser() -> impl Parser<char, Label, Error = ParseError> {
     integer_parser()
@@ -143,6 +200,10 @@ pub fn aligned_offset_label_parser() -> impl Parser<char, Label, Error = ParseEr
         })
         .map(|v| Label::Offset(v))
         .or(ident().map(|v| Label::Name(v)))
+        .map_err(|mut err| {
+            err.given_type = ParseErrorType::InvalidLabel;
+            err
+        })
 }
 
 pub fn float_parser() -> impl Parser<char, f64, Error = ParseError> + Clone {
@@ -187,6 +248,7 @@ pub fn integer_parser() -> impl Parser<char, i64, Error = ParseError> + Clone {
             err.given_type = ParseErrorType::InvalidIntLiteral;
             err
         })
+        .labelled("Integer parser")
 }
 
 pub fn string_literal_parser() -> impl Parser<char, String, Error = ParseError> + Clone {
@@ -200,6 +262,10 @@ pub fn string_literal_parser() -> impl Parser<char, String, Error = ParseError> 
     .repeated()
     .padded_by(just("\""))
     .collect()
+    .map_err(|mut err: ParseError| {
+        err.given_type = ParseErrorType::InvalidStringLiteral;
+        err
+    })
 }
 
 #[cfg(test)]
@@ -208,9 +274,7 @@ mod test {
 
     use crate::{
         memory::{IndexedAddr, Label, SumAddress},
-        parse::{
-            components::{idx_address_parser, offset_label_parser, sum_address_parser},
-        },
+        parse::components::{idx_address_parser, offset_label_parser, sum_address_parser},
         register::{Proc, Register, GPR_NAMES},
     };
 
@@ -236,10 +300,10 @@ mod test {
         assert_eq!(parser.parse("0d10"), Ok(10));
         assert_eq!(parser.parse("0o12"), Ok(10));
         assert_eq!(parser.parse("-0o12"), Ok(-10));
-        assert!( parser.parse("1.2").is_err());
-        assert!( parser.parse("-1.2").is_err());
-        assert!( parser.parse("+12.").is_err());
-        assert!( parser.parse("--12").is_err());
+        assert!(parser.parse("1.2").is_err());
+        assert!(parser.parse("-1.2").is_err());
+        assert!(parser.parse("+12.").is_err());
+        assert!(parser.parse("--12").is_err());
     }
 
     #[test]

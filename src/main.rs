@@ -1,5 +1,6 @@
 use std::io::Read;
 
+use ariadne::Source;
 use chumsky::{Parser};
 use config::Config;
 use parse::{compile::program_parser};
@@ -22,17 +23,16 @@ fn main() -> std::io::Result<()> {
     let str = String::from_utf8(buffer).unwrap();
     let cfg = Config::default();
     let parser = program_parser(&cfg);
-    let mut mem = parser.parse(str).unwrap();
+    let parse_result = parser.parse(str.as_str());
+    let Ok(mut mem) = parse_result else {
+        for err in parse_result.unwrap_err() {
+            err.display("stdin").finish().eprint(("stdin", Source::from(str.as_str()))).unwrap();
+        }
+        return Ok(());
+    };
     mem.program_counter = 0x0040_0000;
-    let clone = mem.clone();
     mem.run().unwrap();
     println!("{:?}", mem.history);
     println!("{:?}", mem);
-    //for _ in 0..env::args().nth(1).unwrap().parse::<usize>().unwrap() {
-    //    if mem.undo().is_none() {
-    //        break;
-    //    }
-    //}
-    assert_eq!(mem, clone);
     Ok(())
 }

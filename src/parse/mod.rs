@@ -13,4 +13,5 @@ pub use data_section::DataElement;
 pub use text_section::TextElement;
 pub use error::ParseError;
 pub use error::ParseErrorType;
+pub use error::InstructionErrReason;
 pub use compile::make_program;

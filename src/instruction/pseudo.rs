@@ -4,7 +4,7 @@ use crate::instruction::types::Likely;
 use crate::instruction::Comparison;
 use crate::instruction::Instruction;
 use crate::memory::IntType;
-use crate::parse::ParseErrorType;
+use crate::parse::InstructionErrReason;
 use crate::register::Proc;
 use crate::register::Register;
 
@@ -23,27 +23,29 @@ pub enum InstructionType {
     /// Pseudo instruction who may be serialized into more than one word.
     PseudoInst,
     /// Invalid instruction (wrong version or literal out of bounds).
-    Invalid(ParseErrorType),
+    Invalid(InstructionErrReason),
+    /// Literal bounds outside
+    InvalidLitBounds(i64, i64),
 }
 
 impl InstructionType {
     fn cap_imm(self, imm: &Immediate, bits: usize) -> Self {
         if imm.0 >= 1i64 << bits {
-            InstructionType::Invalid(ParseErrorType::LitBounds(0, (1i64 << bits) - 1))
+            InstructionType::InvalidLitBounds(0, (1i64 << bits) - 1)
         } else {
             self
         }
     }
     fn min_v(self, cur_version: Version, version: Version) -> Self {
         if cur_version < version {
-            InstructionType::Invalid(ParseErrorType::MinVersion(version))
+            InstructionType::Invalid(InstructionErrReason::MinVersion(version))
         } else {
             self
         }
     }
     fn max_v(self, cur_version: Version, version: Version) -> Self {
         if cur_version > version {
-            InstructionType::Invalid(ParseErrorType::Deprecated(version))
+            InstructionType::Invalid(InstructionErrReason::Deprecated(version))
         } else {
             self
         }
