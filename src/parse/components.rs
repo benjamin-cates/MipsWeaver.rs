@@ -247,7 +247,7 @@ pub fn idx_address_parser() -> impl Parser<char, IndexedAddr, Error = ParseError
         })
 }
 
-/// Parses an indexed address
+/// Parses a label or an offset
 ///
 /// # Example
 /// ```
@@ -274,7 +274,7 @@ pub fn offset_label_parser() -> impl Parser<char, Label, Error = ParseError> {
         })
 }
 
-/// Parses an indexed address
+/// Parses a label or an aligned offset
 ///
 /// # Example
 /// ```

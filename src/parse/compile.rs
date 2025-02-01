@@ -172,6 +172,7 @@ pub fn make_program(cfg: &Config, data: Vec<DataElement>, kdata: Vec<DataElement
     write_text_segment(&cfg, &mut mem, &mut linker_tasks, 0x0040_0000, text)?;
     write_text_segment(&cfg, &mut mem, &mut linker_tasks, 0x8000_0000, ktext)?;
     mem.linker(linker_tasks)?;
+    mem.program_counter = 0x0040_0000;
     Ok(mem)
 }
 

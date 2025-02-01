@@ -21,15 +21,17 @@ impl Memory {
                 Some(val) => val,
                 None => Err(ParseError::new(span.clone(), ParseErrorType::UndefinedLabel))?
             };
+            let offset = sum_addr.offset.unwrap_or(0) as u32;
             let ori = Instruction::OrImmediate((
                 Register::new_gpr(1),
                 Register::new_gpr(0),
-                Immediate((addr & 0xFFFF) as i64),
+                Immediate(((addr.wrapping_add(offset)) & 0xFFFF) as i64),
             ));
             let lui = Instruction::LoadUpperImmediate((
                 Register::new_gpr(1),
-                Immediate((addr & 0xFFFF0000) as i64),
+                Immediate(((addr.wrapping_add(offset)) & 0xFFFF0000) as i64 >> 16),
             ));
+            sum_addr.label = None;
             // If there is a register, add another add operation
             if let Some(reg) = sum_addr.register {
                 // Add register to register 1
@@ -41,7 +43,8 @@ impl Memory {
                 sum_addr.register = Some(Register::new_gpr(1));
                 return Ok([ori, lui, add, I::Nop]);
             }
-            sum_addr.label = None;
+            // Set sum address to reference register 1
+            sum_addr.register = Some(Register::new_gpr(1));
             return Ok([ori, lui, I::Nop, I::Nop]);
         } else if let Some(offset) = sum_addr.offset {
             // If the offset does not fit within current slot

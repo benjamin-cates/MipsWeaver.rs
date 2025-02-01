@@ -68,4 +68,64 @@ impl Memory {
         while self.step()? {}
         return Ok(());
     }
+    fn run_debug(&mut self) -> Result<(), RuntimeException> {
+        while self.step()? {
+            println!("{:?}", self);
+        }
+        println!("{:?}", self);
+        return Ok(());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chumsky::Parser;
+
+    use crate::{parse::program_parser, Config, RuntimeException};
+
+    #[test]
+    fn test_exit_codes() {
+        let cfg = Config::default();
+        let parser = program_parser(&cfg);
+        assert_eq!(
+            parser
+                .parse(".text\nori $2, $2, 10\nsyscall\n")
+                .unwrap()
+                .run()
+                .unwrap_err(),
+            RuntimeException::Exit(0)
+        );
+        assert_eq!(
+            parser
+                .parse(".text\n ori $4, $4, 78\nori $2, $2, 17\nsyscall\n")
+                .unwrap()
+                .run()
+                .unwrap_err(),
+            RuntimeException::Exit(78)
+        );
+        assert_eq!(
+            parser
+                .parse(".text\naddi $4, $4, -0b101\nori $2, $2, 17\nsyscall\n")
+                .unwrap()
+                .run()
+                .unwrap_err(),
+            RuntimeException::Exit(-5)
+        );
+        assert_eq!(
+            parser
+                .parse(".text\nori $t1, $t1, 5\nlabol:\naddi $t1, $t1, -1\naddi $4, $4, 0b101\nbnec $t1, $zero, labol\nori $2, $2, 17\nsyscall\n")
+                .unwrap()
+                .run()
+                .unwrap_err(),
+            RuntimeException::Exit(25)
+        );
+        assert_eq!(
+            parser
+                .parse(".data\n.word\nhi: 16, 8\n.text\nlw $4, hi+4\nori $2, $2, 17\nsyscall\n")
+                .unwrap()
+                .run_debug()
+                .unwrap_err(),
+            RuntimeException::Exit(8)
+        );
+    }
 }
