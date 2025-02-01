@@ -21,7 +21,7 @@ use crate::{
             idx_address_parser, offset_label_parser, sum_address_parser,
         },
         error::ParseErrorType,
-        ParseError, INSTRUCTION_LIST,
+        ParseError,
     },
     register::{Proc, Register},
 };
@@ -242,9 +242,9 @@ pub fn instruction_parser(
         .at_least(1)
         .collect()
         .try_map(|s: String, span: Range<usize>| {
-            match INSTRUCTION_LIST.binary_search(&s.to_lowercase().as_str()) {
-                Ok(s) => Ok(s),
-                Err(_) => Err(ParseError::new(
+            match Instruction::get_name(s.to_lowercase().as_str()) {
+                Some(s) => Ok(s),
+                None => Err(ParseError::new(
                     span.clone(),
                     ParseErrorType::InvalidInstruction(
                         None,
@@ -257,16 +257,16 @@ pub fn instruction_parser(
 
     name_parser
         .map_with_span(|name, span| (name, span))
-        .then_with(move |(name_id, span)| {
+        .then_with(move |(name, span)| {
             cache
                 .borrow_mut()
-                .entry(INSTRUCTION_LIST[name_id])
-                .or_insert_with(|| get_inst_parser(INSTRUCTION_LIST[name_id], version))
+                .entry(name)
+                .or_insert_with(|| get_inst_parser(name, version))
                 .clone()
                 .map_err(move |mut err| {
                     if let ParseErrorType::InvalidInstruction(_, _, reason) = err.given_type {
                         err.given_type = ParseErrorType::InvalidInstruction(
-                            Some(INSTRUCTION_LIST[name_id]),
+                            Some(name),
                             Some((span.start, span.end)),
                             reason,
                         );

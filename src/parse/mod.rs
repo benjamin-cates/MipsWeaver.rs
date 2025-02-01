@@ -1,8 +1,6 @@
 pub mod components;
 mod error;
 mod instruction;
-mod instruction_list;
-pub(crate) use instruction_list::INSTRUCTION_LIST;
 pub(crate) mod text_section;
 pub(crate) mod data_section;
 pub(crate) mod compile;
