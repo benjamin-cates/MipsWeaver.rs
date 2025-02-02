@@ -40,21 +40,19 @@ impl DataElement {
 /// This will create a list of tokens in the form of either labels, numbers, strings, etc.
 /// Comments at the ends of lines are ignored
 pub(crate) fn data_section_parser() -> impl Parser<char, Vec<DataElement>, Error = ParseError> {
-    let label = ident()
-        .then_ignore(just(":"))
-        .map(|label| DataElement::Label(label));
+    let label = ident().then_ignore(just(":")).map(DataElement::Label);
     let float = float_parser().map(|float| DataElement::Float(float as f32));
-    let double = float_parser().map(|float| DataElement::Double(float));
-    let ascii = string_literal_parser().map(|str| DataElement::Ascii(str));
-    let asciiz = string_literal_parser().map(|str| DataElement::AsciiZ(str));
+    let double = float_parser().map(DataElement::Double);
+    let ascii = string_literal_parser().map(DataElement::Ascii);
+    let asciiz = string_literal_parser().map(DataElement::AsciiZ);
     let byte = integer_parser().validate(|int, span, emit| {
-        if int > 255 || int < -128 {
+        if !(-128..=255).contains(&int) {
             emit(ParseError::new(span, ParseErrorType::LitBounds(-128, 255)))
         }
         DataElement::Byte(int)
     });
     let halfword = integer_parser().validate(|int, span, emit| {
-        if int > 0xFFFF || int < -0x8000 {
+        if !(-0x8000..=0xFFFF).contains(&int) {
             emit(ParseError::new(
                 span,
                 ParseErrorType::LitBounds(-0x8000, 0xFFFF),
@@ -63,7 +61,7 @@ pub(crate) fn data_section_parser() -> impl Parser<char, Vec<DataElement>, Error
         DataElement::Halfword(int)
     });
     let word = integer_parser().validate(|int, span, emit| {
-        if int > 0xFFFFFFFF || int < -0x80000000 {
+        if !(-0x80000000..=0xFFFFFFFF).contains(&int) {
             emit(ParseError::new(
                 span,
                 ParseErrorType::LitBounds(-0x80000000, 0xFFFFFFFF),
@@ -105,7 +103,7 @@ pub(crate) fn data_section_parser() -> impl Parser<char, Vec<DataElement>, Error
         word_section,
         just(".space ")
             .ignore_then(integer_parser().padded().validate(|val, span, emit| {
-                if val < 0 || val >= 65536 {
+                if !(0..65536).contains(&val) {
                     emit(ParseError::new(
                         span.clone(),
                         ParseErrorType::LitBounds(0, 65535),
@@ -118,7 +116,7 @@ pub(crate) fn data_section_parser() -> impl Parser<char, Vec<DataElement>, Error
             .exactly(1),
         just(".global ")
             .ignore_then(ident().padded())
-            .map(|v| DataElement::Global(v))
+            .map(DataElement::Global)
             .then_ignore(endl().or_not())
             .repeated()
             .exactly(1),

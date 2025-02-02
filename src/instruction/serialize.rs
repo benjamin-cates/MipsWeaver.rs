@@ -18,15 +18,15 @@ impl IntType {
             Self::Doubleword => (0b10101, 5),
         }
     }
-    /// Encode as a built builder piece with its 3 bit representation (only present in floating point instructions).
-    fn enc3(&self) -> (u32, usize) {
-        match self {
-            Self::Byte => panic!("Cannot serialize byte type"),
-            Self::Halfword => panic!("Cannot serialize halfword type"),
-            Self::Word => (0b100, 3),
-            Self::Doubleword => (0b101, 3),
-        }
-    }
+    // Encode as a built builder piece with its 3 bit representation (only present in floating point instructions).
+    //fn enc3(&self) -> (u32, usize) {
+    //    match self {
+    //        Self::Byte => panic!("Cannot serialize byte type"),
+    //        Self::Halfword => panic!("Cannot serialize halfword type"),
+    //        Self::Word => (0b100, 3),
+    //        Self::Doubleword => (0b101, 3),
+    //    }
+    //}
 }
 
 impl FloatType {
@@ -77,7 +77,7 @@ fn sum_addr_handler(
     if let Some(offset) = sum_addr.offset {
         inst |= (offset as u32 & ((1 << offset_len) - 1)) << (32 - offset_idx - offset_len);
     }
-    return inst;
+    inst
 }
 
 /// Return the offset of this label or add it to the list of linker tasks
@@ -93,8 +93,8 @@ fn fill_label(
             emit(LinkerTask::new(pc, offset, len, label));
             0
         }
-        Label::Offset(offset) => *offset as u32 & ((1 << len) - 1) as u32,
-        Label::AlignedOffset(offset) => *offset as u32 & ((1 << len) - 1) as u32,
+        Label::Offset(offset) => (*offset) as u32 & ((1 << len) - 1) as u32,
+        Label::AlignedOffset(offset) => *offset & ((1 << len) - 1) as u32,
     }
 }
 /// Return 256 MB aligned jump location or push task to the linker
@@ -110,8 +110,8 @@ fn fill_jump(
             emit(LinkerTask::new_jump(pc, offset, len, label));
             0
         }
-        Label::Offset(offset) => *offset as u32,
-        Label::AlignedOffset(offset) => *offset as u32,
+        Label::Offset(offset) => (*offset) as u32,
+        Label::AlignedOffset(offset) => *offset,
     }
 }
 
@@ -120,7 +120,7 @@ impl Instruction {
     /// If the operation cannot be encoded in a single instruction, encoding may be broken.
     /// If the instruction could possibly be a pseudo instruction, run it through [`crate::memory::Memory::translate_pseudo_instruction`] first.
     pub fn serialize(&self, cfg: &Config, pc: u32, emit: impl FnMut(LinkerTask)) -> u32 {
-        serialize(&self, cfg, pc, emit)
+        serialize(self, cfg, pc, emit)
     }
 }
 fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerTask)) -> u32 {
@@ -230,11 +230,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
         }
         I::BranchZero(cmp, likely, (reg, ref label))
         | I::BranchZeroLink(cmp, likely, (reg, ref label)) => {
-            let link = if let I::BranchZeroLink(_, _, _) = inst {
-                true
-            } else {
-                false
-            };
+            let link = matches!(inst, I::BranchZeroLink(_, _, _));
             let sym1: u32 = match (cmp, likely) {
                 (Cmp::Ge, _) => 0b000001,
                 (Cmp::Eq, _) => 0b000001,
@@ -268,7 +264,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
                 return build!((0b111110, 6), reg.enc(), (offset, 21));
             }
             let offset = fill_label(emit, pc, 16, 16, label);
-            return match cmp {
+            match cmp {
                 Cmp::Ge => {
                     build!((0b010110, 6), reg.enc(), reg.enc(), (offset, 16))
                 }
@@ -282,7 +278,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
                     build!((0b010111, 6), reg.enc(), reg.enc(), (offset, 16))
                 }
                 _ => unreachable!(),
-            };
+            }
         }
         I::BranchCompact(cmp, sign, (rs, rt, ref label)) => {
             // BC
@@ -313,7 +309,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
             } else {
                 rt.enc()
             };
-            return match cmp {
+            match cmp {
                 // BLEC (pseudo instruction encoded as BGEC)
                 Cmp::Le => build!((0b010110, 6), rt.enc(), rs.enc(), (offset, 16)),
                 // BGEC
@@ -326,7 +322,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
                 Cmp::Eq => build!((0b001000, 6), smaller, larger, (offset, 16)),
                 //BNEC
                 Cmp::Ne => build!((0b011000, 6), smaller, larger, (offset, 16)),
-            };
+            }
         }
         I::BranchCopZ(cop, eq, (reg, ref label)) => {
             let offset = fill_label(emit, pc, 16, 16, label);
@@ -515,10 +511,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
             build!((0b0100101, 7), (imm.0 as u32, 25))
         }
         I::Crc32(it, (rt, rs)) | I::Crc32C(it, (rt, rs)) => {
-            let has_c = match inst {
-                I::Crc32(..) => false,
-                _ => true,
-            };
+            let has_c = !matches!(inst, I::Crc32(..));
             let sz = match it {
                 IntType::Byte => 0,
                 IntType::Halfword => 1,
@@ -805,7 +798,7 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
                 _ => unreachable!(),
             };
             let inst = build!((id, 6), (0, 5), reg.enc(), (0, 16));
-            return sum_addr_handler(inst, 6, 16, 16, sum_addr);
+            sum_addr_handler(inst, 6, 16, 16, sum_addr)
         }
         I::LoadUpperImmediate((reg, imm)) => {
             build!(

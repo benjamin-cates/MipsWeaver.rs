@@ -182,7 +182,7 @@ fn args_parser_4<
         .boxed()
 }
 
-fn lit_parser<'a>(sign: Sign, bits: usize) -> Rc<dyn Parser<char, Immediate, Error = ParseError>> {
+fn lit_parser(sign: Sign, bits: usize) -> Rc<dyn Parser<char, Immediate, Error = ParseError>> {
     let (min, max): (i64, i64) = if sign == Sign::Signed {
         (-(1 << (bits as i64 - 1)), (1 << (bits as i64 - 1)) - 1)
     } else {
@@ -191,10 +191,7 @@ fn lit_parser<'a>(sign: Sign, bits: usize) -> Rc<dyn Parser<char, Immediate, Err
     lit_parser_min_max(min, max)
 }
 
-fn lit_parser_min_max<'a>(
-    min: i64,
-    max: i64,
-) -> Rc<dyn Parser<char, Immediate, Error = ParseError>> {
+fn lit_parser_min_max(min: i64, max: i64) -> Rc<dyn Parser<char, Immediate, Error = ParseError>> {
     Rc::new(
         integer_parser().validate(move |num, span: Range<usize>, emit| {
             if num > max || num < min {
@@ -223,8 +220,10 @@ fn valid_fpr_type(fpr_type: FloatType) -> impl Parser<char, Register, Error = Pa
     })
 }
 
+#[allow(unused)]
+type Cache = HashMap<(&'static str, Version), BoxedParser<'static, char, Instruction, ParseError>>;
 thread_local! {
-    static PARSER_CACHE: Cell<RwLock<HashMap<(&'static str, Version), BoxedParser<'static, char, Instruction, ParseError>>>> = Cell::new(RwLock::new(HashMap::new()));
+    static PARSER_CACHE: Cell<RwLock<Cache>> = Cell::new(RwLock::new(HashMap::new()));
 }
 
 type Boxy<O> = Rc<dyn Parser<char, O, Error = ParseError>>;
@@ -380,10 +379,10 @@ fn get_inst_parser(
             })
         }
         "bc1eqz" | "bc1nez" => args_parser_2(&fpr, &to_boxy(offset_label_parser()), move |args| {
-            I::BranchCopZ(Proc::Cop1, name.find("eqz").is_some(), args)
+            I::BranchCopZ(Proc::Cop1, name.contains("eqz"), args)
         }),
         "bc2eqz" | "bc2nez" => args_parser_2(&apr, &to_boxy(offset_label_parser()), move |args| {
-            I::BranchCopZ(Proc::Cop2, name.find("eqz").is_some(), args)
+            I::BranchCopZ(Proc::Cop2, name.contains("eqz"), args)
         }),
         "bc1f" | "bc1fl" | "bc1t" | "bc1tl" | "bc2f" | "bc2fl" | "bc2t" | "bc2tl" => {
             let proc = if name.as_bytes()[2] == b'1' {
@@ -391,8 +390,8 @@ fn get_inst_parser(
             } else {
                 Proc::Cop2
             };
-            let truthy: bool = name.find('t').is_some();
-            let likely = if name.find('l').is_some() {
+            let truthy: bool = name.contains('t');
+            let likely = if name.contains('l') {
                 Likely::True
             } else {
                 Likely::Normal
@@ -738,7 +737,7 @@ fn get_inst_parser(
             if version == Version::R6 {
                 args_parser_3(&gpr, &gpr, &gpr, |args| I::MulR6(false, S, args))
             } else {
-                args_parser_3(&gpr, &gpr, &gpr, |args| I::MulOld(args))
+                args_parser_3(&gpr, &gpr, &gpr, I::MulOld)
             }
         }
         "muh" | "mulu" | "muhu" => args_parser_3(&gpr, &gpr, &gpr, move |args| {

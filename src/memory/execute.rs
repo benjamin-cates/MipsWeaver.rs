@@ -66,14 +66,15 @@ impl Memory {
     /// In the event of a runtime error, returns [`RuntimeException`].
     pub fn run(&mut self) -> Result<(), RuntimeException> {
         while self.step()? {}
-        return Ok(());
+        Ok(())
     }
+    #[allow(unused)]
     fn run_debug(&mut self) -> Result<(), RuntimeException> {
         while self.step()? {
             println!("{:?}", self);
         }
         println!("{:?}", self);
-        return Ok(());
+        Ok(())
     }
 }
 

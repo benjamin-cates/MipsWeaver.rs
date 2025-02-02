@@ -12,7 +12,7 @@ impl Iterator for InstructionIter {
     type Item = (String, Instruction, Version);
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.inner.len() == 0 {
+            if self.inner.is_empty() {
                 return None;
             }
             if let Some(val) = self.inner[0].next() {

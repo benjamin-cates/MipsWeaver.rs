@@ -25,8 +25,8 @@ pub(crate) fn parse_text_section(
     endl().or_not().ignore_then(
         ident()
             .then_ignore(just(":"))
-            .map(|str| TextElement::Label(str))
-            .or(instruction_parser(version).map(|v| TextElement::Instruction(v)))
+            .map(TextElement::Label)
+            .or(instruction_parser(version).map(TextElement::Instruction))
             .then_ignore(endl().or_not())
             .separated_by(empty())
             .allow_leading()

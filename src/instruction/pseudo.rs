@@ -68,14 +68,10 @@ impl InstructionType {
             } else {
                 Self::Inst
             }
+        } else if imm.0 < 0 || imm.0 >= (1 << bits) {
+            Self::PseudoInst
         } else {
-            if imm.0 < 0 {
-                Self::PseudoInst
-            } else if imm.0 >= (1 << bits) {
-                Self::PseudoInst
-            } else {
-                Self::Inst
-            }
+            Self::Inst
         }
     }
     /// Return invalid instruction if using paired single float type outside of releases 2-5
@@ -145,7 +141,7 @@ fn inst_type_helper(inst: &Instruction, config: &Config) -> InstructionType {
         I::BranchOverflowCompact(_, _) => n.min_v(v, R6),
         I::Break => n,
         I::FloatCompare(_, dt, _) => n.ps_ft(v, dt),
-        I::Cache((_, rel_addr)) => n.base_offset(&rel_addr, r6_9_16),
+        I::Cache((_, rel_addr)) => n.base_offset(rel_addr, r6_9_16),
         I::Ceil(it, _, _) => n.lf_it(v, it),
         I::CopyFromControlCop(_, _) => n,
         I::Class(_, _) => n.min_v(v, R6),
@@ -186,20 +182,20 @@ fn inst_type_helper(inst: &Instruction, config: &Config) -> InstructionType {
         I::JumpLinkRegister(false, ..) => n,
         I::JumpLinkExchange(..) => n.max_v(v, R5),
         I::JumpIndexedCompact(..) => n.min_v(v, R6),
-        I::LoadAddress((_, addr)) => n.base_offset(&addr, 1),
-        I::LoadInt(_, _, (_, addr)) => n.base_offset(&addr, 16),
+        I::LoadAddress((_, addr)) => n.base_offset(addr, 1),
+        I::LoadInt(_, _, (_, addr)) => n.base_offset(addr, 16),
         I::LoadCop(Proc::Cop2, _, (_, addr)) if config.version == Version::R6 => {
-            n.base_offset(&addr, 11)
+            n.base_offset(addr, 11)
         }
-        I::LoadCop(_, _, (_, addr)) => n.base_offset(&addr, 16),
+        I::LoadCop(_, _, (_, addr)) => n.base_offset(addr, 16),
         I::LoadIndexedCop1(_, _) => n.min_v(v, R2).max_v(v, R5),
         I::LoadIndexedUnalignedCop1(_, _) => n.min_v(v, R2).max_v(v, R5),
-        I::LoadLinkedWord((_, addr)) => n.base_offset(&addr, r6_9_16),
+        I::LoadLinkedWord((_, addr)) => n.base_offset(addr, r6_9_16),
         I::LoadLinkedWordPaired(_) => n.min_v(v, R6),
         I::LoadScaledAddress(_) => n.min_v(v, R6),
         I::LoadUpperImmediate(_) => n,
-        I::LoadWordLeft((_, addr)) => n.base_offset(&addr, 16).max_v(v, R5),
-        I::LoadWordRight((_, addr)) => n.base_offset(&addr, 16).max_v(v, R5),
+        I::LoadWordLeft((_, addr)) => n.base_offset(addr, 16).max_v(v, R5),
+        I::LoadWordRight((_, addr)) => n.base_offset(addr, 16).max_v(v, R5),
         I::LoadWordPCRelative((_, imm)) => n.cap_imm(imm, 19).min_v(v, R6),
         I::MultiplyAdd(_, _) => n.max_v(v, R5),
         I::MultiplyAddFloat(_, _, _) => n.min_v(v, R2).max_v(v, R5),
@@ -244,7 +240,7 @@ fn inst_type_helper(inst: &Instruction, config: &Config) -> InstructionType {
         I::OrImmediate((_, _, imm)) => n.pseudo_imm(&U, imm, 16),
         I::Pause => n.min_v(v, R2),
         I::PairedPS(_, _, _) => n.min_v(v, R2).max_v(v, R5),
-        I::Pref((_, addr)) => n.base_offset(&addr, r6_9_16),
+        I::Pref((_, addr)) => n.base_offset(addr, r6_9_16),
         I::PrefIndexed((_, _)) => n.min_v(v, R2).max_v(v, R5),
         I::ReadHWReg(_) => n.min_v(v, R2),
         I::ReadPGPR(_) => n.min_v(v, R2),
@@ -254,12 +250,12 @@ fn inst_type_helper(inst: &Instruction, config: &Config) -> InstructionType {
         I::RotateRightVariable(_) => n.min_v(v, R2),
         I::Round(it, _, _) => n.lf_it(v, it),
         I::ReciprocalSqrt(_, _) => n.min_v(v, R2),
-        I::StoreInt(_, (_, addr)) => n.base_offset(&addr, 16),
-        I::StoreConditional((_, addr)) => n.base_offset(&addr, r6_9_16),
+        I::StoreInt(_, (_, addr)) => n.base_offset(addr, 16),
+        I::StoreConditional((_, addr)) => n.base_offset(addr, r6_9_16),
         I::StoreConditionalPairedWord(_) => n.min_v(v, R6),
         I::SwDebugBreak(_) => n,
         I::StoreCop(proc, _, (_, addr)) => n.base_offset(
-            &addr,
+            addr,
             if v == R6 && *proc == Proc::Cop2 {
                 11
             } else {
@@ -284,10 +280,10 @@ fn inst_type_helper(inst: &Instruction, config: &Config) -> InstructionType {
         I::SuperScalarNop => n,
         I::Subtract(_, _) => n,
         I::SubtractFloat(ft, _) => n.ps_ft(v, ft),
-        I::StoreWordLeft((_, rel_addr)) => n.base_offset(&rel_addr, 16).max_v(v, R5),
-        I::StoreWordRight((_, rel_addr)) => n.base_offset(&rel_addr, 16).max_v(v, R5),
+        I::StoreWordLeft((_, rel_addr)) => n.base_offset(rel_addr, 16).max_v(v, R5),
+        I::StoreWordRight((_, rel_addr)) => n.base_offset(rel_addr, 16).max_v(v, R5),
         I::Sync(_) => n,
-        I::SyncInstructionWrites(addr) => n.base_offset(&addr, 16).min_v(v, R2),
+        I::SyncInstructionWrites(addr) => n.base_offset(addr, 16).min_v(v, R2),
         I::Syscall(_) => n,
         I::Trap(_, _, _) => n,
         I::TrapImmediate(_, _, (_, imm)) => n.pseudo_imm(&S, imm, 16).max_v(v, R5),

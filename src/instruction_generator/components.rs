@@ -107,12 +107,10 @@ impl Display for ImmediateRand {
             } else {
                 f.write_fmt(format_args!("0b{:b}", imm.0))
             }
+        } else if imm.0 < 0 {
+            f.write_fmt(format_args!("-0d{}", -imm.0))
         } else {
-            if imm.0 < 0 {
-                f.write_fmt(format_args!("-0d{}", -imm.0))
-            } else {
-                f.write_fmt(format_args!("0d{}", imm.0))
-            }
+            f.write_fmt(format_args!("0d{}", imm.0))
         }
     }
 }
@@ -142,10 +140,7 @@ impl Display for LabelRand {
             .chain('a'..='z')
             .chain('A'..='Z')
             .chain('_'..'`');
-        f.write_char(
-            iter.nth((10 + self.0 as usize % (SIZE - 10)) as usize)
-                .unwrap(),
-        )?;
+        f.write_char(iter.nth(10 + self.0 as usize % (SIZE - 10)).unwrap())?;
         if self.0 % 2 == 0 {
             let mut iter = ('0'..='9')
                 .chain('a'..='z')
@@ -193,10 +188,7 @@ impl Display for AlignedLabelRand {
             .chain('a'..='z')
             .chain('A'..='Z')
             .chain('_'..'`');
-        f.write_char(
-            iter.nth((10 + self.0 as usize % (SIZE - 10)) as usize)
-                .unwrap(),
-        )?;
+        f.write_char(iter.nth(10 + self.0 as usize % (SIZE - 10)).unwrap())?;
         if self.0 % 2 == 0 {
             let mut iter = ('0'..='9')
                 .chain('a'..='z')

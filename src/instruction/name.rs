@@ -1,6 +1,6 @@
 use super::Instruction;
 
-const NAME_MAPPING: &[(&'static str, &'static str)] = &[
+const NAME_MAPPING: &[(&str, &str)] = &[
     ("abs.d", "Absolute value of double"),
     ("abs.ps", "Absolute value of paired single"),
     ("abs.s", "Absolute value of float"),

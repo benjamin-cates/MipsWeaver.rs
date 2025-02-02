@@ -13,12 +13,11 @@ pub(crate) fn fits_bits(imm: i64, bits: usize, sign: Sign) -> bool {
 
 pub(crate) fn crc32(value: u32, message: u32, num_bytes: usize, poly: u32) -> u32 {
     let mut value = value;
-    value = value ^ (message);
+    value ^= message;
     for _ in 0..(num_bytes * 8) {
+        value >>= 1;
         if value & 0b1 == 1 {
-            value = (value >> 1) ^ poly;
-        } else {
-            value = value >> 1;
+            value ^= poly;
         }
     }
     value

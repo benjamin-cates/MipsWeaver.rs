@@ -1,18 +1,9 @@
 use std::collections::VecDeque;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ExecutionHistory {
     vec: VecDeque<u32>,
     jumps: VecDeque<(u32, u32)>,
-}
-
-impl Default for ExecutionHistory {
-    fn default() -> Self {
-        Self {
-            vec: VecDeque::new(),
-            jumps: VecDeque::new(),
-        }
-    }
 }
 
 impl ExecutionHistory {

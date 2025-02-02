@@ -266,8 +266,8 @@ pub fn idx_address_parser() -> impl Parser<char, IndexedAddr, Error = ParseError
 /// ```
 pub fn offset_label_parser() -> impl Parser<char, Label, Error = ParseError> {
     integer_parser()
-        .map(|v| Label::Offset(v))
-        .or(ident().map(|v| Label::Name(v)))
+        .map(Label::Offset)
+        .or(ident().map(Label::Name))
         .map_err(|mut err| {
             err.given_type = ParseErrorType::InvalidLabel;
             err
@@ -302,7 +302,7 @@ pub fn aligned_offset_label_parser() -> impl Parser<char, Label, Error = ParseEr
             }
             Label::AlignedOffset(v as u32)
         })
-        .or(ident().map(|v| Label::Name(v)))
+        .or(ident().map(Label::Name))
         .map_err(|mut err| {
             err.given_type = ParseErrorType::InvalidLabel;
             err
@@ -310,7 +310,7 @@ pub fn aligned_offset_label_parser() -> impl Parser<char, Label, Error = ParseEr
 }
 
 pub(crate) fn float_parser() -> impl Parser<char, f64, Error = ParseError> + Clone {
-    let digits = filter(|c: &char| c.is_digit(10)).repeated().at_least(1);
+    let digits = filter(|c: &char| c.is_ascii_digit()).repeated().at_least(1);
     just('-')
         .or_not()
         .collect::<Vec<char>>()
@@ -338,7 +338,9 @@ pub(crate) fn integer_parser() -> impl Parser<char, i64, Error = ParseError> + C
         just("0x").to(16),
         empty().to(10),
     ));
-    let digits = filter(|c: &char| c.is_digit(16)).repeated().at_least(1);
+    let digits = filter(|c: &char| c.is_ascii_hexdigit())
+        .repeated()
+        .at_least(1);
     sign.then(int_prefix)
         .then(digits.collect::<String>())
         .try_map(|((sign, base), num), span: Range<usize>| {

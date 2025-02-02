@@ -94,24 +94,24 @@ impl Error<char> for ParseError {
         found: Option<char>,
     ) -> Self {
         Self {
-            expected: expected.into_iter().filter_map(|v| v).collect(),
-            found: found,
-            span: span,
+            expected: expected.into_iter().flatten().collect(),
+            found,
+            span,
             label: "",
             given_type: ParseErrorType::Unknown,
         }
     }
     fn merge(mut self, mut other: Self) -> Self {
         if self.given_type != ParseErrorType::Unknown {
-            self.expected.extend(other.expected.into_iter());
+            self.expected.extend(other.expected);
             self
         } else {
-            other.expected.extend(self.expected.into_iter());
+            other.expected.extend(self.expected);
             other
         }
     }
     fn with_label(mut self, label: Self::Label) -> Self {
-        if self.label == "" {
+        if self.label.is_empty() {
             self.label = label;
         }
         self

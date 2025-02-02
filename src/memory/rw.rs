@@ -16,7 +16,7 @@ impl Memory {
         if !self.cfg.allow_unaligned() {
             return Err(RuntimeException::UnalignedReadWrite);
         }
-        Ok((self.load_byte(address)? as u32 >> 0)
+        Ok((self.load_byte(address)? as u32)
             + (self.load_byte(address + 1)? as u32 >> 8)
             + (self.load_byte(address + 2)? as u32 >> 16)
             + (self.load_byte(address + 3)? as u32 >> 24))
@@ -51,7 +51,7 @@ impl Memory {
             return Err(RuntimeException::UnalignedReadWrite);
         }
         let old = self.unaligned_load_word(address)?;
-        self.store_byte(address + 0, (value >> 0) as u8)?;
+        self.store_byte(address, value as u8)?;
         self.store_byte(address + 1, (value >> 8) as u8)?;
         self.store_byte(address + 2, (value >> 16) as u8)?;
         self.store_byte(address + 3, (value >> 24) as u8)?;
@@ -75,18 +75,18 @@ impl Memory {
         let addr = (address & 0xFF) as usize;
         // Write as little endian
         if let Some(arr) = self.mem_map.get_mut(&chunk_address) {
-            let old = arr[addr + 0] as u32
+            let old = arr[addr] as u32
                 + ((arr[addr + 1] as u32) << 8)
                 + ((arr[addr + 2] as u32) << 16)
                 + ((arr[addr + 3] as u32) << 24);
-            arr[addr + 0] = (value >> 0) as u8;
+            arr[addr] = value as u8;
             arr[addr + 1] = (value >> 8) as u8;
             arr[addr + 2] = (value >> 16) as u8;
             arr[addr + 3] = (value >> 24) as u8;
             Ok(old)
         } else {
             let mut arr = [0; 256];
-            arr[addr + 0] = (value >> 0) as u8;
+            arr[addr] = value as u8;
             arr[addr + 1] = (value >> 8) as u8;
             arr[addr + 2] = (value >> 16) as u8;
             arr[addr + 3] = (value >> 24) as u8;
@@ -146,8 +146,7 @@ impl Memory {
             return Err(RuntimeException::UnalignedReadWrite);
         }
         Ok(self.store_byte(address, value as u8)? as u16
-            + (self.store_byte(address + 1, (value >> 8) as u8)? as u16)
-            << 8)
+            + ((self.store_byte(address + 1, (value >> 8) as u8)? as u16) << 8))
     }
     /// Reads a halfword (2-bytes) from memory
     /// If the address is not 2-byte aligned and unaligned writes are not allowed, returns
@@ -164,7 +163,7 @@ impl Memory {
             return Err(RuntimeException::UnalignedReadWrite);
         }
         // Current byte + 256 * next byte (little endian)
-        Ok((self.load_byte(address)? as u16) + (self.load_byte(address + 1)? as u16) << 8)
+        Ok((self.load_byte(address)? as u16) + ((self.load_byte(address + 1)? as u16) << 8))
     }
     /// Reads a doubleword (8-bytes) from memory
     /// If the address is not 8-byte aligned and unaligned writes are not allowed, returns
@@ -224,7 +223,7 @@ impl Memory {
             IntType::Byte => self.store_byte(address, val as u8)? as u64,
             IntType::Halfword => self.store_halfword(address, val as u16)? as u64,
             IntType::Word => self.store_word(address, val as u32)? as u64,
-            IntType::Doubleword => self.store_doubleword(address, val)? as u64,
+            IntType::Doubleword => self.store_doubleword(address, val)?,
         })
     }
 }

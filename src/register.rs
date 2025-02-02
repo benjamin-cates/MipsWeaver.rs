@@ -99,7 +99,7 @@ impl Display for Register {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("$")?;
         match self.0 {
-            Proc::GPR => f.write_str(GPR_NAMES[self.1 as usize].0),
+            Proc::GPR => f.write_str(GPR_NAMES[self.1].0),
             Proc::Cop1 => {
                 f.write_str("f")?;
                 f.write_fmt(format_args!("{}", self.1))

@@ -105,8 +105,8 @@ fn syscall14(mem: &mut Memory, num_written: &mut u32) -> Result<(), RuntimeExcep
     let address = mem.reg(5);
     let max_chars = mem.reg(6);
     let bytes = match mem.io_system.read_buffered(fd as i32, max_chars as usize) {
-        Ok(bytes) => bytes,
-        Err(()) => {
+        Some(bytes) => bytes,
+        None => {
             *num_written = -1i32 as u32;
             return Ok(());
         }
@@ -128,12 +128,12 @@ fn syscall15(mem: &mut Memory) -> Result<(), RuntimeException> {
         bytes.push(mem.load_byte(address + i)?);
     }
     match mem.io_system.write(fd as i32, bytes.as_slice()) {
-        Ok(num_written) => {
+        Some(num_written) => {
             mem.history.push(mem.reg(2));
             mem.set_reg(2, num_written as u32);
             Ok(())
         }
-        Err(()) => {
+        None => {
             mem.history.push(mem.reg(2));
             mem.set_reg(2, -1i32 as u32);
             Ok(())

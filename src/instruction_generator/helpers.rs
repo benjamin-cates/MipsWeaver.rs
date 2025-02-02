@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-pub trait MakesInst: FnMut([u32; 4]) -> (String, Instruction, Version) {}
+//pub trait MakesInst: FnMut([u32; 4]) -> (String, Instruction, Version) {}
 
-impl<T: FnMut([u32; 4]) -> (String, Instruction, Version)> MakesInst for T {}
+//impl<T: FnMut([u32; 4]) -> (String, Instruction, Version)> MakesInst for T {}
 
 use crate::{
     config::Version,
@@ -238,7 +238,7 @@ pub fn one_label(
         Version::R5,
         generator,
         name,
-        (-(1 << (bits - 1)), (1 << (bits - 1) - 1)),
+        (-(1 << (bits - 1)), ((1 << (bits - 1)) - 1)),
     )
 }
 pub fn float_label(
@@ -251,7 +251,7 @@ pub fn float_label(
         generator,
         name,
         (),
-        (-(1 << (bits - 1)), (1 << (bits - 1) - 1)),
+        (-(1 << (bits - 1)), ((1 << (bits - 1)) - 1)),
     )
 }
 pub fn imm_label(
@@ -265,7 +265,7 @@ pub fn imm_label(
         generator,
         name,
         min_max1,
-        (-(1 << (bits - 1)), (1 << (bits - 1) - 1)),
+        (-(1 << (bits - 1)), ((1 << (bits - 1)) - 1)),
     )
 }
 pub fn reg_reg_label(
@@ -279,7 +279,7 @@ pub fn reg_reg_label(
         name,
         (),
         (),
-        (-(1 << (bits - 1)), (1 << (bits - 1) - 1)),
+        (-(1 << (bits - 1)), ((1 << (bits - 1)) - 1)),
     )
 }
 pub fn reg_label(
@@ -292,7 +292,7 @@ pub fn reg_label(
         generator,
         name,
         (),
-        (-(1 << (bits - 1)), (1 << (bits - 1) - 1)),
+        (-(1 << (bits - 1)), ((1 << (bits - 1)) - 1)),
     )
 }
 pub fn no_args(
@@ -312,7 +312,7 @@ pub fn reg_sumaddr(
         generator,
         name,
         (),
-        (-(1 << (bits - 1)), 1 << (bits - 1) - 1),
+        (-(1 << (bits - 1)), (1 << (bits - 1)) - 1),
     )
 }
 pub fn reg_sumaddr_r6(
@@ -325,6 +325,6 @@ pub fn reg_sumaddr_r6(
         generator,
         name,
         (),
-        (-(1 << (bits - 1)), 1 << (bits - 1) - 1),
+        (-(1 << (bits - 1)), (1 << (bits - 1)) - 1),
     )
 }

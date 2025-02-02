@@ -94,7 +94,7 @@ impl Memory {
             }
             return Ok([I::Nop, I::Nop, I::Nop, I::Nop]);
         }
-        return Ok([I::Nop, I::Nop, I::Nop, I::Nop]);
+        Ok([I::Nop, I::Nop, I::Nop, I::Nop])
     }
 }
 

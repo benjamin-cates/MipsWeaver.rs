@@ -37,6 +37,7 @@ impl LinkerTask {
             label: label.clone(),
         }
     }
+    #[allow(unused)]
     pub(crate) fn new_full_load(pc: u32, label: &Label, offset: i32) -> Self {
         LinkerTask::LoadAddress {
             pc,
@@ -46,7 +47,7 @@ impl LinkerTask {
     }
     pub(crate) fn new_jump(pc: u32, offset: usize, len: usize, label: &Label) -> Self {
         LinkerTask::JumpLabel {
-            pc: pc,
+            pc,
             bit_offset: offset,
             bit_len: len,
             label: label.clone(),

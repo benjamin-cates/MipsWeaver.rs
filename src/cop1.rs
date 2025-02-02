@@ -9,6 +9,7 @@ use crate::{
 /// - Register 0: the floating point implementation register
 /// - Register 1: User floating point register mode control (release 5 only)
 /// - Register 31: Floating point control and status register (manages condition codes and exceptions)
+///
 /// Registers that are not required by the specification are left unimplemented
 pub struct FloatingPointControl {
     pub ufr: u32,
@@ -73,7 +74,7 @@ impl FloatingPointException {
 impl FloatingPointControl {
     /// Returns whether "flush subnormals" is enabled in the floating point control and status register.
     pub fn flush_subnormals(&self) -> bool {
-        (self.fcsr >> 24 & 0x1) == 1
+        ((self.fcsr >> 24) & 0x1) == 1
     }
     /// Log an error with the floating point coprocessor.
     /// If the error is enabled, set the cause and flag and throw the error.
@@ -152,9 +153,7 @@ impl FloatingPointControl {
     /// Sets the value of the control register `id` to `value`. Readonly bits are left unchanged.
     /// If the register is not implemented, returns None.
     pub fn set_control_register(&mut self, cfg: &Config, id: usize, value: u32) -> Option<()> {
-        if id == 0 {
-            Some(())
-        } else if id == 1 && cfg.version == Version::R5 {
+        if id == 0 || id == 1 && cfg.version == Version::R5 {
             Some(())
         } else if id == 31 {
             let mask = if cfg.version == Version::R6 {

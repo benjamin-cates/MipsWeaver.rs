@@ -1,5 +1,5 @@
 /// Array reference of supported language codes.
-pub const SUPPORTED_LANGS: &[&'static str] = &["en"];
+pub const SUPPORTED_LANGS: &[&str] = &["en"];
 
 /// Stores configuration data for parsing, execution, and serialization.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

@@ -8,10 +8,10 @@ use Sign::Signed as S;
 use Sign::Unsigned as U;
 
 fn get_bits(value: u32, left: usize, len: usize) -> u32 {
-    return value & (((1 << len) - 1) << (32 - left - len));
+    value & (((1 << len) - 1) << (32 - left - len))
 }
 fn get_gpr(value: u32, left: usize) -> Register {
-    return Register::new_gpr(get_bits(value, left, 5) as usize);
+    Register::new_gpr(get_bits(value, left, 5) as usize)
 }
 fn get_fmt(value: u32, left: usize) -> Option<FloatType> {
     match get_bits(value, left, 5) {
@@ -21,12 +21,14 @@ fn get_fmt(value: u32, left: usize) -> Option<FloatType> {
         _ => None,
     }
 }
+#[allow(unused)]
 fn extract_float(value: u32, left: usize) -> Register {
-    return Register::new_float(get_bits(value, left, 5) as usize);
+    Register::new_float(get_bits(value, left, 5) as usize)
 }
 
 impl Instruction {
-    fn deserialize(cfg: &Config, val: u32) -> Option<Instruction> {
+    /// UNIMPLEMENTED
+    pub fn deserialize(cfg: &Config, val: u32) -> Option<Instruction> {
         match get_bits(val, 32, 6) {
             0b010001 => deser_cop1(cfg, val),
             0b000000 => deser_special(cfg, val),
@@ -51,7 +53,7 @@ impl Instruction {
     }
 }
 
-fn deser_cop1(cfg: &Config, val: u32) -> Option<Instruction> {
+fn deser_cop1(_cfg: &Config, val: u32) -> Option<Instruction> {
     match get_bits(val, 26, 6) {
         0b000101 => {
             if get_bits(val, 11, 5) == 0 {
@@ -70,7 +72,7 @@ fn deser_cop1(cfg: &Config, val: u32) -> Option<Instruction> {
         _ => todo!(),
     }
 }
-fn deser_special(cfg: &Config, value: u32) -> Option<Instruction> {
+fn deser_special(_cfg: &Config, value: u32) -> Option<Instruction> {
     match get_bits(value, 26, 6) {
         // Add
         0b100000 => {

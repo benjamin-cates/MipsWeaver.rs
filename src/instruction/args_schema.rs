@@ -3,14 +3,8 @@ use crate::{Memory, Register};
 /// Stores an integer that is typically used as a constant value encoded directly into an
 /// instruction.
 /// Ex: addi $t0, $t0, 5 has the Immediate value of 5
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct Immediate(pub i64);
-
-impl Default for Immediate {
-    fn default() -> Self {
-        Immediate(0)
-    }
-}
 
 /// Stores a text based label for jumping or data
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -42,6 +36,7 @@ impl Label {
 /// - A label position somewhere in the program
 /// - A constant offset value that's encoded in the instruction
 /// - A register
+///
 /// All of these three elements are summed together to get an address.
 /// General form: label+offset(reg)
 /// Variants: offset(reg), label(reg), (reg), offset+label, offset, label
@@ -80,18 +75,12 @@ impl SumAddress {
 
 /// Stores an address representation in an instruction argument that is at the sum of two register values
 /// Typically written as $0($1) notation where $0 and $1 are register names.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct IndexedAddr(pub Register, pub Register);
 
 impl IndexedAddr {
     pub(crate) fn evaluate(&self, mem: &Memory) -> u32 {
         mem.reg(self.0.id()).wrapping_add(mem.reg(self.1.id()))
-    }
-}
-
-impl Default for IndexedAddr {
-    fn default() -> Self {
-        Self(Register::default(), Register::default())
     }
 }
 

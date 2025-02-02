@@ -81,7 +81,7 @@ fn write_data_segment(mem: &mut Memory, mut addr: u32, elements: Vec<DataElement
             DataElement::Label(label) => {
                 mem.labels.insert(label, addr);
             }
-            DataElement::Global(global) => {
+            DataElement::Global(_global) => {
                 todo!();
             }
             DataElement::Space(space) => {
@@ -120,27 +120,27 @@ fn write_text_segment(
     Ok(())
 }
 
-pub fn program_parser<'a>(cfg: &'a Config) -> impl Parser<char, Memory, Error = ParseError> + 'a {
+pub fn program_parser(cfg: &Config) -> impl Parser<char, Memory, Error = ParseError> + '_ {
     let data = just(".data")
         .ignore_then(endl())
         .ignore_then(data_section_parser())
         .labelled("Data section")
-        .map(|v| Section::Data(v));
+        .map(Section::Data);
     let kdata = just(".kdata")
         .ignore_then(endl())
         .ignore_then(data_section_parser())
         .labelled("KData section")
-        .map(|v| Section::KData(v));
+        .map(Section::KData);
     let text = just(".text")
         .ignore_then(endl())
         .ignore_then(parse_text_section(cfg.version))
         .labelled("Text section")
-        .map(|v| Section::Text(v));
+        .map(Section::Text);
     let ktext = just(".ktext")
         .ignore_then(endl())
         .ignore_then(parse_text_section(cfg.version))
         .labelled("KText section")
-        .map(|v| Section::KText(v));
+        .map(Section::KText);
     let sections = choice((data, kdata, text, ktext))
         .separated_by(endl().or_not())
         .allow_leading()
@@ -175,8 +175,8 @@ pub fn make_program(
     let mut linker_tasks: Vec<(Range<usize>, LinkerTask)> = vec![];
     write_data_segment(&mut mem, 0x1001_0000, data);
     write_data_segment(&mut mem, 0x9000_0000, kdata);
-    write_text_segment(&cfg, &mut mem, &mut linker_tasks, 0x0040_0000, text)?;
-    write_text_segment(&cfg, &mut mem, &mut linker_tasks, 0x8000_0000, ktext)?;
+    write_text_segment(cfg, &mut mem, &mut linker_tasks, 0x0040_0000, text)?;
+    write_text_segment(cfg, &mut mem, &mut linker_tasks, 0x8000_0000, ktext)?;
     mem.linker(linker_tasks)?;
     mem.program_counter = 0x0040_0000;
     Ok(mem)

@@ -25,7 +25,7 @@ const DEFAULT_STATUS0: u32 = 0b0011010010000000000000010001;
 
 impl Default for Cop0 {
     fn default() -> Self {
-        return Cop0 {
+        Cop0 {
             user_local: 0,
             rdhwr_idx: RDHWR_INDEXES,
             bad_vaddr: 0,
@@ -41,7 +41,7 @@ impl Default for Cop0 {
             lladdr: 0,
             error_epc: 0,
             scratch: [0; 7],
-        };
+        }
     }
 }
 
