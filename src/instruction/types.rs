@@ -2,9 +2,9 @@ use crate::instruction::Immediate;
 use crate::instruction::IndexedAddr;
 use crate::instruction::Label;
 use crate::instruction::SumAddress;
+use crate::register::{Proc, Register};
 use crate::FloatType;
 use crate::IntType;
-use crate::register::{Proc, Register};
 
 /// Whether an instruction is signed or unsigned
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -318,7 +318,7 @@ pub enum Instruction {
     /// Jump to value in register
     /// Boolean defines whether there is a hazard barrier (true for yes)
     JumpRegister(bool, Register),
-    
+
     /// For instruction 'la'
     /// Loads effective address of the sum address to the register
     LoadAddress((Register, SumAddress)),

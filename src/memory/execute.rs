@@ -113,7 +113,10 @@ mod tests {
         );
         assert_eq!(
             parser
-                .parse(".text\nori $t1, $t1, 5\nlabol:\naddi $t1, $t1, -1\naddi $4, $4, 0b101\nbnec $t1, $zero, labol\nori $2, $2, 17\nsyscall\n")
+                .parse(
+                    ".text\nori $t1, $t1, 5\nlabol:\naddi $t1, $t1, -1\naddi $4, $4, 0b101\nbnec \
+                     $t1, $zero, labol\nori $2, $2, 17\nsyscall\n"
+                )
                 .unwrap()
                 .run()
                 .unwrap_err(),

@@ -1,11 +1,11 @@
 use chumsky::Parser;
-use mips_weaver::Config;
-use mips_weaver::Instruction;
-use mips_weaver::FloatType;
 use mips_weaver::parse::make_program;
 use mips_weaver::parse::program_parser;
 use mips_weaver::parse::DataElement;
 use mips_weaver::parse::TextElement;
+use mips_weaver::Config;
+use mips_weaver::FloatType;
+use mips_weaver::Instruction;
 use mips_weaver::Proc;
 use mips_weaver::Register;
 
@@ -15,7 +15,9 @@ fn test_compile_success() {
     let parser = program_parser(&cfg);
     let float_0 = Register(Proc::Cop1, 0);
     assert_eq!(
-        parser.parse(".data\n.word 1\n.text\nlabel:\n abs.s $0, $0").unwrap(),
+        parser
+            .parse(".data\n.word 1\n.text\nlabel:\n abs.s $0, $0")
+            .unwrap(),
         make_program(
             cfg,
             vec![DataElement::Word(1)],
@@ -31,7 +33,6 @@ fn test_compile_success() {
         )
         .unwrap()
     );
-
 }
 
 #[test]

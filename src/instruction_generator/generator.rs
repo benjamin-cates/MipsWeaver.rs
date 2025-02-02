@@ -5,8 +5,8 @@ use super::components::*;
 use crate::{
     config::Version,
     instruction::{Comparison, Immediate, Instruction, Likely, Sign},
-    FloatType, IntType,
     register::{Proc, Register},
+    FloatType, IntType,
 };
 
 pub fn instruction_template_list() -> Vec<Box<dyn FnMut([u32; 4]) -> (String, Instruction, Version)>>
@@ -256,7 +256,12 @@ pub fn instruction_template_list() -> Vec<Box<dyn FnMut([u32; 4]) -> (String, In
             (1, 16),
         ),
         gen_single_arg::<AlignedLabelRand>(Version::R5, |a| I::Jump(a), "j", (0, (1 << 26) - 1)),
-        gen_single_arg::<AlignedLabelRand>(Version::R5, |a| I::JumpLink(a), "jal", (0, (1 << 26) - 1)),
+        gen_single_arg::<AlignedLabelRand>(
+            Version::R5,
+            |a| I::JumpLink(a),
+            "jal",
+            (0, (1 << 26) - 1),
+        ),
         one_gpr(
             |a| I::JumpLinkRegister(false, (Register::new_gpr(31), a)),
             "jalr",

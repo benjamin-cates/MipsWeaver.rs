@@ -12,7 +12,6 @@ pub enum IOSystem {
     Virtual(VirtualIoSystem),
 }
 
-
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum FileMode {
     Read,
@@ -80,17 +79,15 @@ impl StandardIoSystem {
             None => {
                 if fd == 1 {
                     std::io::stdout().write(bytes).ok().ok_or(())
-                }
-                else if fd == 2 {
+                } else if fd == 2 {
                     std::io::stderr().write(bytes).ok().ok_or(())
-                }
-                else {
+                } else {
                     Err(())
                 }
             }
         }
     }
-    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Result<Vec<u8>,()> {
+    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Result<Vec<u8>, ()> {
         match self.file_descriptors.get_mut(&fd) {
             Some((_path, mode, file)) => {
                 if *mode != FileMode::Read {
@@ -102,9 +99,7 @@ impl StandardIoSystem {
                         output.resize(num_read, 0);
                         Ok(output)
                     }
-                    Err(_) => {
-                        Err(())
-                    }
+                    Err(_) => Err(()),
                 }
             }
             None => {
@@ -280,12 +275,12 @@ impl VirtualIoSystem {
                     self.stdout.extend_from_slice(bytes);
                     return Ok(bytes.len());
                 }
-                return Err(())
+                return Err(());
             }
         }
     }
 
-    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Result<Vec<u8>,()> {
+    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Result<Vec<u8>, ()> {
         match self.file_descriptors.get_mut(&fd) {
             Some((abs_path, mode, cursor)) => {
                 if *mode != FileMode::Read {
@@ -430,7 +425,7 @@ impl IOSystem {
     }
     /// Read bytes from a file, up to the length given
     /// If the end of the file is reached, returns an empty vector
-    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Result<Vec<u8>,()> {
+    pub fn read_buffered(&mut self, fd: i32, length: usize) -> Result<Vec<u8>, ()> {
         match self {
             Self::Standard(s) => s.read_buffered(fd, length),
             Self::Virtual(v) => v.read_buffered(fd, length),

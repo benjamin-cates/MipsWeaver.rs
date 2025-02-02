@@ -15,7 +15,7 @@ use super::{
     components::endl,
     data_section::{data_section_parser, DataElement},
     text_section::{parse_text_section, TextElement},
-    ParseError
+    ParseError,
 };
 
 #[derive(Debug, Clone)]
@@ -164,7 +164,13 @@ pub fn program_parser<'a>(cfg: &'a Config) -> impl Parser<char, Memory, Error = 
         .then_ignore(end())
 }
 
-pub fn make_program(cfg: &Config, data: Vec<DataElement>, kdata: Vec<DataElement>, text: Vec<TextElement>, ktext: Vec<TextElement>) -> Result<Memory, ParseError> {
+pub fn make_program(
+    cfg: &Config,
+    data: Vec<DataElement>,
+    kdata: Vec<DataElement>,
+    text: Vec<TextElement>,
+    ktext: Vec<TextElement>,
+) -> Result<Memory, ParseError> {
     let mut mem = Memory::default();
     let mut linker_tasks: Vec<(Range<usize>, LinkerTask)> = vec![];
     write_data_segment(&mut mem, 0x1001_0000, data);
@@ -175,7 +181,6 @@ pub fn make_program(cfg: &Config, data: Vec<DataElement>, kdata: Vec<DataElement
     mem.program_counter = 0x0040_0000;
     Ok(mem)
 }
-
 
 #[cfg(test)]
 fn data_bytes(bytes: &[u8], start: u32, labels: &[(String, u32)]) -> Memory {
@@ -218,10 +223,10 @@ fn test_write_data_segment() {
         },
         data_bytes(
             &[
-                0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, b'h', b'a', b'i', 0x00, b'h',
-                b'o', b'l', 0x00, 0x01, 0x01, 0xF8, 0x9F, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF,
-                0x00, 0x00, 0x9A, 0x99, 0x99, 0x3E, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0xD3, 0x3F,
+                0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, b'h', b'a', b'i', 0x00, b'h', b'o',
+                b'l', 0x00, 0x01, 0x01, 0xF8, 0x9F, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00,
+                0x9A, 0x99, 0x99, 0x3E, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x33, 0x33,
+                0x33, 0x33, 0x33, 0x33, 0xD3, 0x3F,
             ],
             0x1001_0000,
             &[

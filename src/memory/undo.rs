@@ -126,7 +126,7 @@ impl Memory {
                 let val = self.history.pop_u64()?;
                 self.cop1_reg[dst.id()] = val;
             }
-            
+
             // Floating point operations that may change fcsr
             I::RoundToInt(_, (dst, _))
             | I::CvtToInt(_, _, (dst, _))
@@ -137,7 +137,6 @@ impl Memory {
                 if fcsr != 0 {
                     self.cop1.fcsr = fcsr;
                 }
-
             }
             // Messes with hi and lo registers
             I::DivOld(..) | I::MultiplyAdd(..) | I::MultiplySub(..) | I::Mult(..) => {

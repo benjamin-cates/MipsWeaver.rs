@@ -49,25 +49,25 @@ pub(crate) fn data_section_parser() -> impl Parser<char, Vec<DataElement>, Error
     let asciiz = string_literal_parser().map(|str| DataElement::AsciiZ(str));
     let byte = integer_parser().validate(|int, span, emit| {
         if int > 255 || int < -128 {
-            emit(
-                ParseError::new(span, ParseErrorType::LitBounds(-128, 255)),
-            )
+            emit(ParseError::new(span, ParseErrorType::LitBounds(-128, 255)))
         }
         DataElement::Byte(int)
     });
     let halfword = integer_parser().validate(|int, span, emit| {
         if int > 0xFFFF || int < -0x8000 {
-            emit(
-                ParseError::new(span, ParseErrorType::LitBounds(-0x8000, 0xFFFF)),
-            )
+            emit(ParseError::new(
+                span,
+                ParseErrorType::LitBounds(-0x8000, 0xFFFF),
+            ))
         }
         DataElement::Halfword(int)
     });
     let word = integer_parser().validate(|int, span, emit| {
         if int > 0xFFFFFFFF || int < -0x80000000 {
-            emit(
-                ParseError::new(span, ParseErrorType::LitBounds(-0x80000000, 0xFFFFFFFF)),
-            )
+            emit(ParseError::new(
+                span,
+                ParseErrorType::LitBounds(-0x80000000, 0xFFFFFFFF),
+            ))
         }
         DataElement::Word(int)
     });
@@ -106,9 +106,10 @@ pub(crate) fn data_section_parser() -> impl Parser<char, Vec<DataElement>, Error
         just(".space ")
             .ignore_then(integer_parser().padded().validate(|val, span, emit| {
                 if val < 0 || val >= 65536 {
-                    emit(
-                        ParseError::new(span.clone(), ParseErrorType::LitBounds(0, 65535)),
-                    )
+                    emit(ParseError::new(
+                        span.clone(),
+                        ParseErrorType::LitBounds(0, 65535),
+                    ))
                 }
                 DataElement::Space(val as usize)
             }))

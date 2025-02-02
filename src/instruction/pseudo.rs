@@ -3,11 +3,11 @@ use crate::config::Version;
 use crate::instruction::types::Likely;
 use crate::instruction::Comparison;
 use crate::instruction::Instruction;
-use crate::IntType;
-use crate::FloatType;
 use crate::parse::InstructionErrReason;
 use crate::register::Proc;
 use crate::register::Register;
+use crate::FloatType;
+use crate::IntType;
 
 use super::Immediate;
 use super::Sign;

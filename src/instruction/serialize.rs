@@ -1,5 +1,9 @@
 use crate::{
-    config::{Config, Version}, instruction::{types::Likely, Comparison, Immediate}, memory::{LinkerTask}, FloatType, IntType, register::{Proc, Register}, util
+    config::{Config, Version},
+    instruction::{types::Likely, Comparison, Immediate},
+    memory::LinkerTask,
+    register::{Proc, Register},
+    util, FloatType, IntType,
 };
 
 use super::{Instruction, Label, Sign, SumAddress};
@@ -77,7 +81,13 @@ fn sum_addr_handler(
 }
 
 /// Return the offset of this label or add it to the list of linker tasks
-fn fill_label(mut emit: impl FnMut(LinkerTask), pc: u32, offset: usize, len: usize, label: &Label) -> u32 {
+fn fill_label(
+    mut emit: impl FnMut(LinkerTask),
+    pc: u32,
+    offset: usize,
+    len: usize,
+    label: &Label,
+) -> u32 {
     match label {
         Label::Name(_) => {
             emit(LinkerTask::new(pc, offset, len, label));
@@ -88,7 +98,13 @@ fn fill_label(mut emit: impl FnMut(LinkerTask), pc: u32, offset: usize, len: usi
     }
 }
 /// Return 256 MB aligned jump location or push task to the linker
-fn fill_jump(mut emit: impl FnMut(LinkerTask), pc: u32, offset: usize, len: usize, label: &Label) -> u32 {
+fn fill_jump(
+    mut emit: impl FnMut(LinkerTask),
+    pc: u32,
+    offset: usize,
+    len: usize,
+    label: &Label,
+) -> u32 {
     match label {
         Label::Name(_) => {
             emit(LinkerTask::new_jump(pc, offset, len, label));
@@ -144,7 +160,8 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
             build!(
                 (31, 6),
                 reg1.enc(),
-                reg2.enc(), dst.enc(),
+                reg2.enc(),
+                dst.enc(),
                 (2, 3),
                 (imm as u32, 2),
                 (32, 6)
@@ -286,8 +303,16 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
                 };
             }
 
-            let smaller = if rs.id() < rt.id() { rs.enc() } else { rt.enc() };
-            let larger = if rs.id() > rt.id() { rs.enc() } else { rt.enc() };
+            let smaller = if rs.id() < rt.id() {
+                rs.enc()
+            } else {
+                rt.enc()
+            };
+            let larger = if rs.id() > rt.id() {
+                rs.enc()
+            } else {
+                rt.enc()
+            };
             return match cmp {
                 // BLEC (pseudo instruction encoded as BGEC)
                 Cmp::Le => build!((0b010110, 6), rt.enc(), rs.enc(), (offset, 16)),
@@ -354,8 +379,16 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
         }
         I::BranchOverflowCompact(overflow, (rs, rt, ref label)) => {
             let offset = fill_label(emit, pc, 16, 16, label);
-            let smaller = if rs.id() < rt.id() { rs.enc() } else { rt.enc() };
-            let larger = if rs.id() > rt.id() { rs.enc() } else { rt.enc() };
+            let smaller = if rs.id() < rt.id() {
+                rs.enc()
+            } else {
+                rt.enc()
+            };
+            let larger = if rs.id() > rt.id() {
+                rs.enc()
+            } else {
+                rt.enc()
+            };
             build!(
                 (if overflow { 0b001000 } else { 0b011000 }, 6),
                 larger,
@@ -1483,6 +1516,6 @@ fn serialize(inst: &Instruction, cfg: &Config, pc: u32, emit: impl FnMut(LinkerT
         I::XorImmediate((rt, rs, Imm(imm))) => {
             build!((0b001110, 6), rs.enc(), rt.enc(), (imm as u32, 16))
         }
-        _ => build!((0,32)),
+        _ => build!((0, 32)),
     }
 }

@@ -1,5 +1,5 @@
 use chumsky::Parser;
-use mips_weaver::{Config, parse::program_parser};
+use mips_weaver::{parse::program_parser, Config};
 
 #[test]
 fn test_afl_crashes() {
@@ -14,9 +14,7 @@ fn test_afl_crashes() {
             .unwrap();
             if let Ok(s) = std::str::from_utf8(data.as_ref()) {
                 println!("{:?}", s);
-                if let Ok(mut mem) =
-                    parser.parse(s)
-                {
+                if let Ok(mut mem) = parser.parse(s) {
                     mem.program_counter = 0x0040_0000;
                     let _ = mem.run();
                     while let Some(_) = mem.undo() {}

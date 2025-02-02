@@ -1,13 +1,13 @@
 use crate::cop1::FloatingPointException;
-use crate::memory::RuntimeException;
 use crate::instruction::execution_helpers::{binary_float, trinary_float, unary_float};
 use crate::instruction::types::Likely;
 use crate::instruction::Instruction;
 use crate::memory::Memory;
-use crate::FloatType;
-use crate::IntType;
+use crate::memory::RuntimeException;
 use crate::register::Proc;
 use crate::util::{crc32, fits_bits};
+use crate::FloatType;
+use crate::IntType;
 use core::ops::Add;
 use std::num::FpCategory;
 use std::ops::{Mul, Neg, Shr, Sub};
@@ -117,7 +117,10 @@ impl Instruction {
             }
             I::AddUpperImmediatePC((dst, Immediate(imm))) => {
                 mem.history.push(mem.reg(dst.id()));
-                mem.set_reg(dst.id(), mem.program_counter.wrapping_add((imm as u32) << 16));
+                mem.set_reg(
+                    dst.id(),
+                    mem.program_counter.wrapping_add((imm as u32) << 16),
+                );
             }
             I::Branch(cmp, likely, (reg1, reg2, ref label)) => {
                 if compare(cmp, mem.reg(reg1.id()) as i32, mem.reg(reg2.id()) as i32) {
@@ -301,7 +304,12 @@ impl Instruction {
                     IntType::Word => (0xFFFFFFFF, 4),
                     _ => unreachable!(),
                 };
-                let crc = crc32(mem.reg(rt.id()), mem.reg(rs.id()) & mask, num_bytes, 0xEDB88320);
+                let crc = crc32(
+                    mem.reg(rt.id()),
+                    mem.reg(rs.id()) & mask,
+                    num_bytes,
+                    0xEDB88320,
+                );
                 mem.set_reg(rt.id(), crc);
             }
             I::Crc32C(it, (rt, rs)) => {
@@ -312,7 +320,12 @@ impl Instruction {
                     IntType::Word => (0xFFFFFFFF, 4),
                     _ => unreachable!(),
                 };
-                let crc = crc32(mem.reg(rt.id()), mem.reg(rs.id()) & mask, num_bytes, 0x82F63B78);
+                let crc = crc32(
+                    mem.reg(rt.id()),
+                    mem.reg(rs.id()) & mask,
+                    num_bytes,
+                    0x82F63B78,
+                );
                 mem.set_reg(rt.id(), crc);
             }
             I::CopyToControlCop(..) => {
@@ -682,8 +695,8 @@ impl Instruction {
                 mem.history.push(mem.hi);
                 mem.history.push(mem.lo);
                 let cur = mem.get_hilo();
-                let res =
-                    cur.wrapping_add((mem.reg(rs.id()) as u64).wrapping_mul(mem.reg(rt.id()) as u64));
+                let res = cur
+                    .wrapping_add((mem.reg(rs.id()) as u64).wrapping_mul(mem.reg(rt.id()) as u64));
                 mem.set_hilo(res);
             }
             I::MultiplySub(Sign::Signed, (rs, rt)) => {
@@ -699,29 +712,41 @@ impl Instruction {
                 mem.history.push(mem.hi);
                 mem.history.push(mem.lo);
                 let cur = mem.get_hilo();
-                let res =
-                    cur.wrapping_sub((mem.reg(rs.id()) as u64).wrapping_mul(mem.reg(rt.id()) as u64));
+                let res = cur
+                    .wrapping_sub((mem.reg(rs.id()) as u64).wrapping_mul(mem.reg(rt.id()) as u64));
                 mem.set_hilo(res);
             }
             I::MultiplyAddFloat(fmt, negative, (fd, fr, fs, ft)) => {
                 if negative {
-                    trinary_float(mem, fmt, fd.id(), fs.id(), fr.id(), ft.id(), |r, s, t| -(s * t + r));
+                    trinary_float(mem, fmt, fd.id(), fs.id(), fr.id(), ft.id(), |r, s, t| {
+                        -(s * t + r)
+                    });
                 } else {
-                    trinary_float(mem, fmt, fd.id(), fs.id(), fr.id(), ft.id(), |r, s, t| s * t + r);
+                    trinary_float(mem, fmt, fd.id(), fs.id(), fr.id(), ft.id(), |r, s, t| {
+                        s * t + r
+                    });
                 }
             }
             I::MultiplyAddFloatFused(fmt, (fd, fs, ft)) => {
-                trinary_float(mem, fmt, fd.id(), fd.id(), fs.id(), ft.id(), |d, s, t| d + s * t);
+                trinary_float(mem, fmt, fd.id(), fd.id(), fs.id(), ft.id(), |d, s, t| {
+                    d + s * t
+                });
             }
             I::MultiplySubFloat(fmt, negative, (fd, fr, fs, ft)) => {
                 if negative {
-                    trinary_float(mem, fmt, fd.id(), fs.id(), fr.id(), ft.id(), |r, s, t| -(s * t - r));
+                    trinary_float(mem, fmt, fd.id(), fs.id(), fr.id(), ft.id(), |r, s, t| {
+                        -(s * t - r)
+                    });
                 } else {
-                    trinary_float(mem, fmt, fd.id(), fs.id(), fr.id(), ft.id(), |r, s, t| s * t - r);
+                    trinary_float(mem, fmt, fd.id(), fs.id(), fr.id(), ft.id(), |r, s, t| {
+                        s * t - r
+                    });
                 }
             }
             I::MultiplySubFloatFused(fmt, (fd, fs, ft)) => {
-                trinary_float(mem, fmt, fd.id(), fd.id(), fs.id(), ft.id(), |d, s, t| d - s * t);
+                trinary_float(mem, fmt, fd.id(), fd.id(), fs.id(), ft.id(), |d, s, t| {
+                    d - s * t
+                });
             }
             I::MaxFloat(fmt, absolute, (fd, fs, ft)) => {
                 if absolute {
@@ -876,12 +901,14 @@ impl Instruction {
                     if sign == Sign::Signed {
                         mem.set_reg(
                             rd.id(),
-                            ((mem.reg(rs.id()) as i64).wrapping_mul(mem.reg(rt.id()) as i64) >> 32) as u64 as u32,
+                            ((mem.reg(rs.id()) as i64).wrapping_mul(mem.reg(rt.id()) as i64) >> 32)
+                                as u64 as u32,
                         );
                     } else {
                         mem.set_reg(
                             rd.id(),
-                            ((mem.reg(rs.id()) as u64).wrapping_mul(mem.reg(rt.id()) as u64) >> 32) as u32,
+                            ((mem.reg(rs.id()) as u64).wrapping_mul(mem.reg(rt.id()) as u64) >> 32)
+                                as u32,
                         );
                     }
                 } else {
@@ -990,7 +1017,10 @@ impl Instruction {
             }
             I::RotateRightVariable((rd, rt, rs)) => {
                 mem.history.push(mem.reg(rd.id()));
-                mem.set_reg(rd.id(), mem.reg(rt.id()).rotate_right(mem.reg(rs.id()) & 0x1F));
+                mem.set_reg(
+                    rd.id(),
+                    mem.reg(rt.id()).rotate_right(mem.reg(rs.id()) & 0x1F),
+                );
             }
             I::Round(it, fmt, (fd, fs)) => {
                 mem.history.push_u64(mem.cop1_reg[fd.id()]);
@@ -1284,7 +1314,10 @@ impl Instruction {
             I::WordSwapHalfwords((rd, rt)) => {
                 let val = mem.reg(rt.id());
                 mem.history.push(mem.reg(rd.id()));
-                mem.set_reg(rd.id(), ((val & 0x00FF00FF) << 8) | ((val & 0xFF00FF00) >> 8));
+                mem.set_reg(
+                    rd.id(),
+                    ((val & 0x00FF00FF) << 8) | ((val & 0xFF00FF00) >> 8),
+                );
             }
             I::Xor((rd, rs, rt)) => {
                 mem.history.push(mem.reg(rd.id()));

@@ -1,4 +1,3 @@
-
 use std::fmt::Display;
 
 /// Stores a processor where a register resides.
@@ -20,9 +19,9 @@ pub enum Proc {
 #[derive(Clone, Copy, Debug)]
 pub struct Register(
     /// Processor where the register resides.
-    pub Proc, 
+    pub Proc,
     /// Index of the register. Number from 0 to 31
-    pub usize
+    pub usize,
 );
 
 impl PartialEq for Register {

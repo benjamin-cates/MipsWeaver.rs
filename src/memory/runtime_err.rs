@@ -1,4 +1,3 @@
-
 /// Exceptions that can occur during runtime
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum RuntimeException {

@@ -1,6 +1,5 @@
 use std::fmt::Display;
 
-
 pub trait MakesInst: FnMut([u32; 4]) -> (String, Instruction, Version) {}
 
 impl<T: FnMut([u32; 4]) -> (String, Instruction, Version)> MakesInst for T {}
@@ -185,14 +184,20 @@ pub fn one_gpr(
     gen_single_arg::<RegRand>(Version::R5, generator, name, ())
 }
 
-pub fn three_gpr<A>(generator: A, name: &'static str) -> Box<dyn FnMut([u32; 4]) -> (String, Instruction, Version)>
+pub fn three_gpr<A>(
+    generator: A,
+    name: &'static str,
+) -> Box<dyn FnMut([u32; 4]) -> (String, Instruction, Version)>
 where
     A: Fn((Register, Register, Register)) -> Instruction + Copy + 'static,
 {
     gen_triple_arg::<RegRand, RegRand, RegRand>(Version::R5, generator, name, (), (), ())
 }
 
-pub fn two_gpr<A>(generator: A, name: &'static str) -> Box<dyn FnMut([u32; 4]) -> (String, Instruction, Version)>
+pub fn two_gpr<A>(
+    generator: A,
+    name: &'static str,
+) -> Box<dyn FnMut([u32; 4]) -> (String, Instruction, Version)>
 where
     A: Fn((Register, Register)) -> Instruction + Copy + 'static,
 {
@@ -290,7 +295,10 @@ pub fn reg_label(
         (-(1 << (bits - 1)), (1 << (bits - 1) - 1)),
     )
 }
-pub fn no_args(target: &'static Instruction, name: &'static str) -> Box<dyn FnMut([u32; 4]) -> (String, Instruction, Version)> {
+pub fn no_args(
+    target: &'static Instruction,
+    name: &'static str,
+) -> Box<dyn FnMut([u32; 4]) -> (String, Instruction, Version)> {
     Box::new(|_a: [u32; 4]| (name.to_string(), target.clone(), Version::R5))
 }
 

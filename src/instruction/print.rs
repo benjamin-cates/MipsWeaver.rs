@@ -1,7 +1,7 @@
 use crate::{
     instruction::{types::Likely, Comparison, Immediate},
-    FloatType, IntType,
     register::{Proc, Register},
+    FloatType, IntType,
 };
 use std::fmt::Display;
 

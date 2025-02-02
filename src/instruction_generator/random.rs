@@ -1,4 +1,3 @@
-
 use std::{collections::VecDeque, iter};
 
 use crate::{config::Version, instruction::Instruction};
@@ -40,10 +39,15 @@ pub fn random_instruction_iterator(take: usize) -> InstructionIter {
                     let mut i = 0;
                     iter::from_fn(move || {
                         i += 1;
-                        Some(func([randish(i, 3), randish(i, 5), randish(i, 7), randish(i, 9)]))
+                        Some(func([
+                            randish(i, 3),
+                            randish(i, 5),
+                            randish(i, 7),
+                            randish(i, 9),
+                        ]))
                     })
                     .take(take)
-                }) as Box<dyn Iterator<Item=(String, Instruction, Version)>>
+                }) as Box<dyn Iterator<Item = (String, Instruction, Version)>>
             })
             .collect::<VecDeque<_>>(),
     }

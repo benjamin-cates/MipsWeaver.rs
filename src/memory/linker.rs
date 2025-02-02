@@ -68,8 +68,7 @@ impl Memory {
                     let addr = match label.get_address(self) {
                         Some(val) => val as i64,
                         None => {
-                            return Err(ParseError::new(
-                                task.0, ParseErrorType::UndefinedLabel));
+                            return Err(ParseError::new(task.0, ParseErrorType::UndefinedLabel));
                         }
                     };
                     let offset = (addr - ((pc + 4) as i64)) / 4;
@@ -90,7 +89,7 @@ impl Memory {
                     let addr = match label.get_address(self) {
                         Some(val) => val,
                         None => {
-                            return Err(ParseError::new( task.0, ParseErrorType::UndefinedLabel));
+                            return Err(ParseError::new(task.0, ParseErrorType::UndefinedLabel));
                         }
                     };
                     let mask = (1 << bit_len) - 1;

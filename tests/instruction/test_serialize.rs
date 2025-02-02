@@ -1,6 +1,7 @@
 use chumsky::{prelude::end, Parser};
 use mips_weaver::{
-    Config, Version, Instruction, random_instruction_iterator, Memory, parse::{instruction_parser, program_parser}
+    parse::{instruction_parser, program_parser},
+    random_instruction_iterator, Config, Instruction, Memory, Version,
 };
 
 fn bits(s: &str) -> u32 {
@@ -36,12 +37,7 @@ fn test_serialize_all() {
         if translated.is_err() {
             continue;
         }
-        for (i, inst) in 
-            translated
-            .unwrap()
-            .into_iter()
-            .enumerate()
-        {
+        for (i, inst) in translated.unwrap().into_iter().enumerate() {
             if inst == Instruction::Nop && i != 0 {
                 continue;
             }
@@ -702,14 +698,32 @@ fn test_serialize() {
     };
     let parser = instruction_parser(Version::R5).then_ignore(end());
     for test in SIMPLE_TESTS.iter() {
-        assert_eq!(parser.parse(test.1).expect(test.1).1.serialize(&cfgr5, 0, |_| {}), bits(test.0), "{}", test.1);
+        assert_eq!(
+            parser
+                .parse(test.1)
+                .expect(test.1)
+                .1
+                .serialize(&cfgr5, 0, |_| {}),
+            bits(test.0),
+            "{}",
+            test.1
+        );
     }
     let parser = instruction_parser(Version::R6);
     for test in SIMPLE_TESTS_R6.iter() {
-        assert_eq!(parser.parse(test.1).expect(test.1).1.serialize(&cfgr6, 0, |_| {}), bits(test.0), "{}", test.1);
+        assert_eq!(
+            parser
+                .parse(test.1)
+                .expect(test.1)
+                .1
+                .serialize(&cfgr6, 0, |_| {}),
+            bits(test.0),
+            "{}",
+            test.1
+        );
     }
 }
-    
+
 #[test]
 fn test_serialize_random() {
     let cfgr5 = Config {
@@ -719,7 +733,6 @@ fn test_serialize_random() {
     let parser = instruction_parser(Version::R5).then_ignore(end());
     let mem = Memory::default();
     for test in PSEUDO_TESTS {
-
         let insts = mem
             .translate_pseudo_instruction(parser.parse(test.0).expect(test.0).1, 0..0, &cfgr5)
             .unwrap();

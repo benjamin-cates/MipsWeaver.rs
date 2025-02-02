@@ -1,6 +1,6 @@
-mod helpers;
-mod generator;
 mod components;
+mod generator;
+mod helpers;
 mod random;
 
 pub use generator::instruction_template_list;

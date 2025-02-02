@@ -1,5 +1,5 @@
+use crate::instruction::Comparison;
 use crate::instruction::Sign;
-use crate::instruction::{Comparison};
 use crate::{FloatType, IntType};
 
 use core::str::FromStr;
@@ -38,7 +38,7 @@ impl FromStr for Comparison {
             "ge" => Comparison::Ge,
             "lt" => Comparison::Lt,
             "le" => Comparison::Le,
-            _ => Err(())?
+            _ => Err(())?,
         })
     }
 }
@@ -48,8 +48,7 @@ impl FromStr for Sign {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.ends_with('u') || s.ends_with("uc") {
             Ok(Sign::Unsigned)
-        }
-        else {
+        } else {
             Ok(Sign::Signed)
         }
     }
