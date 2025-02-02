@@ -14,7 +14,6 @@ use chumsky::{
 use crate::{
     config::Version,
     instruction::{Comparison, Immediate, Instruction, Likely, Sign},
-    FloatType, IntType,
     parse::{
         components::{
             aligned_offset_label_parser, any_gpr_parser, any_integer_reg_parser,
@@ -24,6 +23,7 @@ use crate::{
         ParseError,
     },
     register::{Proc, Register},
+    FloatType, IntType,
 };
 
 use super::{
@@ -574,9 +574,19 @@ fn get_inst_parser(
             let hb = name == "jr.hb";
             args_parser_1(&gpr, move |args| I::JumpRegister(hb, args))
         }
-        "la" => {
-            args_parser_2(&gpr, &to_boxy(sum_address_parser()), |args| I::LoadAddress(args))
+        "l.d" | "l.s" => {
+            let it = match ft {
+                Double => IntType::Doubleword,
+                Single => IntType::Word,
+                _ => unreachable!(),
+            };
+            args_parser_2(&fpr, &to_boxy(sum_address_parser()), move |args| {
+                I::LoadCop(Proc::Cop1, it, args)
+            })
         }
+        "la" => args_parser_2(&gpr, &to_boxy(sum_address_parser()), |args| {
+            I::LoadAddress(args)
+        }),
         "lb" | "lbu" | "lh" | "lhu" | "lw" | "lwu" => {
             let it = name[1..2].parse().unwrap();
             args_parser_2(&gpr, &to_boxy(sum_address_parser()), move |args| {
@@ -675,6 +685,9 @@ fn get_inst_parser(
         "mov.s" | "mov.d" | "mov.ps" => {
             args_parser_2(&fpr, &fpr, move |args| I::MoveFloat(ft, args))
         }
+        "move" => args_parser_2(&gpr, &gpr, move |args| {
+            I::Or((args.0, Register(Proc::GPR, 0), args.1))
+        }),
         "movf" | "movt" => args_parser_3(&gpr, &gpr, &lit_parser(U, 3), move |args| {
             I::MoveOnFloatCondition(None, name == "movt", args)
         }),
@@ -768,6 +781,16 @@ fn get_inst_parser(
             args_parser_2(&fpr, &fpr, move |args| I::Round(it, ft, args))
         }
         "rsqrt.d" | "rsqrt.s" => args_parser_2(&fpr, &fpr, move |args| I::ReciprocalSqrt(ft, args)),
+        "s.d" | "s.s" => {
+            let it = match ft {
+                Double => IntType::Doubleword,
+                Single => IntType::Word,
+                _ => unreachable!(),
+            };
+            args_parser_2(&fpr, &to_boxy(sum_address_parser()), move |args| {
+                I::StoreCop(Proc::Cop1, it, args)
+            })
+        }
         "sb" | "sh" | "sw" => {
             let it = name[1..2].parse().unwrap();
             args_parser_2(&gpr, &to_boxy(sum_address_parser()), move |args| {
@@ -870,12 +893,13 @@ fn get_inst_parser(
 
 #[cfg(test)]
 mod tests {
-    use chumsky::Parser;
     use crate::{
         config::Version,
         parse::{instruction_parser, InstructionErrReason, ParseError, ParseErrorType},
         register::Proc,
+        Instruction, IntType, Register, SumAddress,
     };
+    use chumsky::Parser;
 
     #[test]
     fn test_instruction_parse_errors() {
@@ -936,5 +960,77 @@ mod tests {
             parser.parse("tlbinv $1\n").unwrap_err()[0].given_type,
             ParseErrorType::InvChar
         );
+    }
+    #[test]
+    fn test_aliases() {
+        let parser = instruction_parser(Version::R5);
+        assert_eq!(
+            parser.parse("l.d $f2, 10($gp)").unwrap().1,
+            Instruction::LoadCop(
+                Proc::Cop1,
+                IntType::Doubleword,
+                (
+                    Register(Proc::Cop1, 2),
+                    SumAddress {
+                        offset: Some(10),
+                        label: None,
+                        register: Some(Register(Proc::GPR, 28))
+                    }
+                )
+            )
+        );
+        assert_eq!(
+            parser.parse("l.s $f2, 10($gp)").unwrap().1,
+            Instruction::LoadCop(
+                Proc::Cop1,
+                IntType::Word,
+                (
+                    Register(Proc::Cop1, 2),
+                    SumAddress {
+                        offset: Some(10),
+                        label: None,
+                        register: Some(Register(Proc::GPR, 28))
+                    }
+                )
+            )
+        );
+        assert_eq!(
+            parser.parse("s.s $f2, 10($gp)").unwrap().1,
+            Instruction::StoreCop(
+                Proc::Cop1,
+                IntType::Word,
+                (
+                    Register(Proc::Cop1, 2),
+                    SumAddress {
+                        offset: Some(10),
+                        label: None,
+                        register: Some(Register(Proc::GPR, 28))
+                    }
+                )
+            )
+        );
+        assert_eq!(
+            parser.parse("s.d $f2, 10($gp)").unwrap().1,
+            Instruction::StoreCop(
+                Proc::Cop1,
+                IntType::Doubleword,
+                (
+                    Register(Proc::Cop1, 2),
+                    SumAddress {
+                        offset: Some(10),
+                        label: None,
+                        register: Some(Register(Proc::GPR, 28))
+                    }
+                )
+            )
+        );
+        assert_eq!(
+            parser.parse("move $t1, $t2").unwrap().1,
+            Instruction::Or((
+                Register(Proc::GPR, 9),
+                Register(Proc::GPR, 0),
+                Register(Proc::GPR, 10)
+            ))
+        )
     }
 }
