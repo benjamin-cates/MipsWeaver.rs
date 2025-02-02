@@ -28,6 +28,7 @@ pub mod parse;
 mod register;
 mod syscall;
 mod util;
+pub mod color;
 pub use memory::Memory;
 pub use memory::RuntimeException;
 pub use register::Proc;
