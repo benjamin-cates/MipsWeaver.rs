@@ -103,6 +103,7 @@ pub fn color_line(line: &str) -> Vec<(Color, usize, usize)> {
                 if ('0'..='9').contains(&ch)
                     || ('a'..='z').contains(&ch)
                     || ('A'..='Z').contains(&ch)
+                    || ch == '.'
                 {
                     Some(Color::Name)
                 } else {
@@ -237,7 +238,7 @@ fn test_coloring() {
     );
     assert_eq!(color_line("0x10.10"), vec![(Color::Float, 0, 7),]);
     assert_eq!(
-        color_line(" hI0o:) "),
+        color_line(" h.0o:) "),
         vec![
             (Color::Whitespace, 0, 1),
             (Color::Name, 1, 5),
@@ -247,7 +248,7 @@ fn test_coloring() {
         ]
     );
     assert_eq!(
-        color_line("hola ; asg\" agsdgh \""),
+        color_line("h.la ; asg\" agsdgh \""),
         vec![(Color::Name, 0, 4), (Color::Whitespace, 4, 5), (Color::Comment,5,20)]
     );
     assert_eq!(
