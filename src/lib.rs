@@ -22,6 +22,7 @@ pub use instruction_generator::instruction_template_list;
 pub use instruction_generator::random_instruction_iterator;
 pub mod io_abstraction;
 mod memory;
+pub use memory::MemChange;
 pub mod parse;
 mod register;
 mod syscall;

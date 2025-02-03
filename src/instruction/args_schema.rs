@@ -109,3 +109,14 @@ pub enum IntType {
     /// 8 bytes (size of two registers)
     Doubleword,
 }
+
+impl IntType {
+    pub fn size(&self) -> u32 {
+        match self {
+            IntType::Byte => 1,
+            IntType::Halfword => 2,
+            IntType::Word => 4,
+            IntType::Doubleword => 8,
+        }
+    }
+}

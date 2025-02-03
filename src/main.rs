@@ -24,6 +24,7 @@ pub use instruction::Sign;
 pub use instruction::SumAddress;
 pub mod io_abstraction;
 mod memory;
+pub use memory::MemChange;
 pub mod parse;
 mod register;
 mod syscall;
