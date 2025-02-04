@@ -32,3 +32,28 @@ pub enum RuntimeException {
     /// Exit with code
     Exit(i32),
 }
+
+impl ToString for RuntimeException {
+    fn to_string(&self) -> String {
+        match self {
+            RuntimeException::Break => "break",
+            RuntimeException::KernelMem => "kernel_mem",
+            RuntimeException::CoprocessorUnusable => "cop_unusable",
+            RuntimeException::ReservedInstruction => "reserved_inst",
+            RuntimeException::UnalignedReadWrite => "unaligned",
+            RuntimeException::ReadOnlyWrite => "read_only",
+            RuntimeException::DivideByZero => "int_div_by_zero",
+            RuntimeException::IntegerOverflow => "int_overflow",
+            RuntimeException::FloatUnimplementedOperation => "float_unimplemented",
+            RuntimeException::FloatInvalidOperation => "float_invalid",
+            RuntimeException::FloatInexact => "float_inexact",
+            RuntimeException::FloatDivideByZero => "float_div_by_zero",
+            RuntimeException::FloatUnderflow => "float_underflow",
+            RuntimeException::FloatOverflow => "float_overflow",
+            RuntimeException::Exit(code) => {
+                return format!("exit {code}");
+            }
+        }
+        .to_string()
+    }
+}
