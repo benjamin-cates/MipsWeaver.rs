@@ -22,6 +22,20 @@ pub enum MemChange {
     NoChange,
 }
 
+impl ToString for MemChange {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Cop0Reg(a, b) => format!("cop0,{a},{b}"),
+            Self::Cop1ControlReg(a) => format!("cop1,{a}"),
+            Self::FPR(a) => format!("fpr,{a}"),
+            Self::GPR(a) => format!("gpr,{a}"),
+            Self::Memory(a, b) => format!("memory,{a},{b}"),
+            Self::HiLo => format!("hilo"),
+            Self::NoChange => format!("none"),
+        }
+    }
+}
+
 impl Memory {
     pub fn get_next_change(&self) -> [MemChange; 3] {
         use Instruction as I;
